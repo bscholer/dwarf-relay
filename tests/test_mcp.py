@@ -57,6 +57,13 @@ def test_invalid_move_is_refused_before_scope_access(client):
     assert r.status_code == 422
 
 
+def test_invalid_body_uses_the_error_shape(client):
+    r = client.post("/api/move", json={"angle": 0, "length": 0.5, "seconds": 60})
+    assert r.status_code == 422
+    assert r.json()["code"] == "invalid_request"
+    assert "seconds" in r.json()["detail"]
+
+
 def test_goto_near_sun_returns_sun_too_close_before_scope_access(client):
     ra, dec = sun_position(dt.datetime.now(dt.timezone.utc))
     body = {"name": "Sun", "ra_hours": ra, "dec_degrees": dec}
