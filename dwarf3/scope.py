@@ -107,9 +107,17 @@ class Scope:
 
     def goto(self, name: str, ra_hours: float, dec_deg: float, timeout: float = 240) -> None:
         self.client.send(MODULE_ASTRO, 11002, field_double(1, ra_hours) + field_double(2, dec_deg) + field_bytes(3, name.encode()))
-        if self._wait(NOTIFY_TRACKING, timeout, lambda f: f.get(1) == STATE_RUNNING) is None:
-            raise ScopeError("goto did not reach tracking state")
-        self.log("goto: tracking")
+        end = time.time() + timeout
+        while time.time() < end:
+            packet = self.client.recv()
+            if not packet:
+                continue
+            if packet[0] == 11002 and packet[1] != 0 and reply_code(packet[2]):
+                raise ScopeError(f"goto refused: code {reply_code(packet[2])}")
+            if packet[0] == NOTIFY_TRACKING and dict(packet[2]).get(1) == STATE_RUNNING:
+                self.log("goto: tracking")
+                return
+        raise ScopeError("goto did not reach tracking state")
 
     def set_capture(self, exposure: str, gain: int, filter_name: str) -> None:
         c = self.client
