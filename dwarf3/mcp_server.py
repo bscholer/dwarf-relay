@@ -1,7 +1,5 @@
-"""MCP server for scope control, over stateless JSON HTTP. It uses the relay connection path."""
-import asyncio
+"""Scope control operations. They use the relay connection path."""
 import datetime as dt
-import json
 import math
 import os
 import threading
@@ -11,7 +9,6 @@ from .client import Client
 from .files import Album
 from .scope import ALBUM_ROOT, EXPOSURE_INDEX, FILTERS, MOTOR_PITCH, MOTOR_ROTATION, Scope
 
-PROTOCOL_VERSION = "2025-06-18"
 MIN_SUN_SEPARATION_DEG = 30.0
 MAX_MOVE_SECONDS = 5.0
 MAX_FRAMES = 500
@@ -35,36 +32,15 @@ def separation_deg(ra1: float, dec1: float, ra2: float, dec2: float) -> float:
     return math.degrees(math.acos(max(-1.0, min(1.0, cosine))))
 
 
+class SunTooCloseError(ValueError):
+    pass
+
+
 def require_safe_target(ra: float, dec: float, when: dt.datetime | None = None) -> None:
     sun_ra, sun_dec = sun_position(when or dt.datetime.now(dt.timezone.utc))
     distance = separation_deg(ra, dec, sun_ra, sun_dec)
     if distance < MIN_SUN_SEPARATION_DEG:
-        raise ValueError(f"target is {distance:.0f} degrees from the Sun, the limit is {MIN_SUN_SEPARATION_DEG:.0f}")
-
-
-def schema(properties: dict | None = None, required: list | None = None) -> dict:
-    return {"type": "object", "properties": properties or {}, "required": required or []}
-
-
-NUMBER, STRING, INTEGER = {"type": "number"}, {"type": "string"}, {"type": "integer"}
-CAMERA = {"type": "boolean", "description": "true for the wide camera"}
-TOOLS = {
-    "status": ("Read motor positions, app connection, dark counts, and the job state.", schema()),
-    "list_sessions": ("List capture session folders on the scope.", schema()),
-    "list_darks": ("List master darks on the scope.", schema({"wide": CAMERA})),
-    "prepare": ("Set time and location, enter astro mode, home the motors, and point straight up.", schema()),
-    "move": ("Move with the joystick. Angle 0 turns right. Seconds has a limit of 5.",
-             schema({"angle": NUMBER, "length": NUMBER, "seconds": NUMBER}, ["angle", "length", "seconds"])),
-    "close_barrel": ("Fold the scope to the closed position.", schema()),
-    "calibrate": ("Focus at infinity and plate solve. Needs a clear view of stars.", schema()),
-    "goto": ("Slew to a target and track it. Refuses a target near the Sun.",
-             schema({"name": STRING, "ra_hours": NUMBER, "dec_degrees": NUMBER}, ["name", "ra_hours", "dec_degrees"])),
-    "start_capture": ("Start a capture job that stops at the frame count. Exposure is 15, 30, or 60. Filter is vis, astro, or duo.",
-                      schema({"frames": INTEGER, "exposure": STRING, "gain": INTEGER, "filter": STRING}, ["frames"])),
-    "stop_job": ("Stop the running capture job.", schema()),
-    "start_dark": ("Start a dark capture at gain 60. Close the barrel first. The scope sends no end signal.",
-                   schema({"exposure": STRING, "frames": INTEGER, "wide": CAMERA}, ["frames"])),
-}
+        raise SunTooCloseError(f"target is {distance:.0f} degrees from the Sun, the limit is {MIN_SUN_SEPARATION_DEG:.0f}")
 
 
 class Service:
@@ -184,62 +160,3 @@ class Service:
     def start_dark(self, frames: int, exposure: str = "15", wide: bool = False) -> str:
         self._with_scope(lambda s: s.start_dark(exposure, "60", frames, wide=wide))
         return "dark capture sent"
-
-
-def rpc_result(request_id, result) -> dict:
-    return {"jsonrpc": "2.0", "id": request_id, "result": result}
-
-
-async def handle_rpc(service: Service, request: dict) -> dict | None:
-    method, request_id = request.get("method"), request.get("id")
-    if method == "initialize":
-        return rpc_result(request_id, {
-            "protocolVersion": request.get("params", {}).get("protocolVersion", PROTOCOL_VERSION),
-            "capabilities": {"tools": {}},
-            "serverInfo": {"name": "dwarf3", "version": "0.1.0"},
-        })
-    if method == "ping":
-        return rpc_result(request_id, {})
-    if method == "tools/list":
-        tools = [{"name": n, "description": d, "inputSchema": s} for n, (d, s) in TOOLS.items()]
-        return rpc_result(request_id, {"tools": tools})
-    if method == "tools/call":
-        params = request.get("params", {})
-        name = params.get("name")
-        if name not in TOOLS:
-            return {"jsonrpc": "2.0", "id": request_id, "error": {"code": -32602, "message": f"unknown tool {name}"}}
-        try:
-            result = await asyncio.to_thread(getattr(service, name), **params.get("arguments", {}))
-            return rpc_result(request_id, {"content": [{"type": "text", "text": json.dumps(result)}]})
-        except Exception as exc:
-            return rpc_result(request_id, {"content": [{"type": "text", "text": str(exc)}], "isError": True})
-    if request_id is None:
-        return None
-    return {"jsonrpc": "2.0", "id": request_id, "error": {"code": -32601, "message": f"unknown method {method}"}}
-
-
-async def handle_http(service: Service, reader, writer) -> None:
-    try:
-        head = (await reader.readuntil(b"\r\n\r\n")).decode("latin-1").split("\r\n")
-        method, path, *_ = head[0].split(" ")
-        headers = {k.strip().lower(): v.strip() for k, v in (h.split(":", 1) for h in head[1:] if ":" in h)}
-        body = await reader.readexactly(int(headers.get("content-length", 0)))
-        status, payload, content_type = "404 Not Found", b"", "application/json"
-        if path == "/mcp" and method == "POST":
-            response = await handle_rpc(service, json.loads(body))
-            status, payload = ("202 Accepted", b"") if response is None else ("200 OK", json.dumps(response).encode())
-        elif path == "/metrics" and method == "GET":
-            status, payload, content_type = "200 OK", service.relay.render_metrics().encode(), "text/plain; version=0.0.4"
-        elif path == "/mcp":
-            status = "405 Method Not Allowed"
-        writer.write(f"HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nContent-Length: {len(payload)}\r\nConnection: close\r\n\r\n".encode() + payload)
-        await writer.drain()
-    except (asyncio.IncompleteReadError, ConnectionError, ValueError):
-        pass
-    finally:
-        writer.close()
-
-
-async def serve(relay, scope_host: str, listen: str, port: int):
-    service = Service(relay, scope_host, asyncio.get_running_loop())
-    return await asyncio.start_server(lambda r, w: handle_http(service, r, w), listen, port)

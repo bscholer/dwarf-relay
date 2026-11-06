@@ -47,6 +47,8 @@ The relay also serves MCP over HTTP at `http://<relay-ip>:9902/mcp`. Commands us
 
 Tools: `status`, `list_sessions`, `list_darks`, `prepare`, `move`, `close_barrel`, `calibrate`, `goto`, `start_capture`, `stop_job`, `start_dark`. `goto` refuses a target within 30 degrees of the Sun. Only `status`, `list_sessions`, `list_darks`, and `move` have a live test.
 
+Each tool is also a REST route under `/api/` on the same port, such as `GET /api/status` and `POST /api/goto`. Both come from one declaration in `dwarf3/api.py` (`@http_endpoint` and `@mcp_tool` in `dwarf3/endpoints.py`). The published specs are `docs/openapi.json` and `docs/mcp-tools.json`, also live at `/openapi.json` and MCP `tools/list`. After you change a tool, run `python -m scripts.export_spec`. A test fails when the files are stale. Set `DWARF3_API_TOKEN` and use `authentication=AuthMode.TOKEN` on a tool to require a bearer token.
+
 ## Metrics and logs
 
 `GET :9902/metrics` serves Prometheus metrics: scope reachability, app connection, battery, SD space, temperatures, capture and calibration state, commands, errors, and traffic. Scope values update only while a client is connected. Stdout has one JSON line for each command or error, with no payloads.

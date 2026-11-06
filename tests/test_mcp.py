@@ -1,10 +1,12 @@
-import asyncio
 import datetime as dt
-import json
 
 import pytest
+from fastapi.testclient import TestClient
 
-from dwarf3.mcp_server import Service, TOOLS, handle_http, handle_rpc, require_safe_target, sun_position
+from dwarf3 import api
+from dwarf3.endpoints import tool_manifest
+from dwarf3.mcp_server import Service, require_safe_target, sun_position
+from scripts.export_spec import DOCS, generated
 
 
 def test_sun_position_at_june_solstice():
@@ -20,74 +22,70 @@ def test_goto_guard_handles_ra_wrap_near_the_sun():
     require_safe_target(12.0, 0.0, march)
 
 
-def service():
-    return Service(relay=None, scope_host="scope", loop=None)
+class FakeRelay:
+    app_link = None
+
+    def render_metrics(self):
+        return "dwarf3_scope_up 1\n"
 
 
-def call(svc, name, arguments=None):
+@pytest.fixture
+def svc(monkeypatch):
+    service = Service(relay=FakeRelay(), scope_host="scope", loop=None)
+    monkeypatch.setattr(api, "_service", service)
+    return service
+
+
+@pytest.fixture
+def client(svc):
+    return TestClient(api.app)
+
+
+def call(client, name, arguments=None):
     request = {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": name, "arguments": arguments or {}}}
-    return asyncio.run(handle_rpc(svc, request))["result"]
+    return client.post("/mcp", json=request).json()["result"]
 
 
-def test_every_listed_tool_has_a_service_method():
-    for name in TOOLS:
-        assert callable(getattr(Service, name))
+def test_every_tool_has_a_service_method():
+    for tool in tool_manifest():
+        assert callable(getattr(Service, tool["name"]))
 
 
-def test_invalid_move_returns_a_tool_error_with_no_scope_access():
-    result = call(service(), "move", {"angle": 0, "length": 0.5, "seconds": 60})
-    assert result["isError"] is True
+def test_invalid_move_is_refused_before_scope_access(client):
+    assert call(client, "move", {"angle": 0, "length": 0.5, "seconds": 60})["isError"] is True
+    r = client.post("/api/move", json={"angle": 0, "length": 0.5, "seconds": 60})
+    assert r.status_code == 422
 
 
-def test_goto_near_sun_fails_before_scope_access():
+def test_goto_near_sun_returns_sun_too_close_before_scope_access(client):
     ra, dec = sun_position(dt.datetime.now(dt.timezone.utc))
-    result = call(service(), "goto", {"name": "Sun", "ra_hours": ra, "dec_degrees": dec})
+    body = {"name": "Sun", "ra_hours": ra, "dec_degrees": dec}
+    r = client.post("/api/goto", json=body)
+    assert (r.status_code, r.json()["code"]) == (422, "sun_too_close")
+    result = call(client, "goto", body)
     assert result["isError"] is True
     assert "from the Sun" in result["content"][0]["text"]
 
 
-def test_motion_refused_while_capture_job_runs():
-    svc = service()
+def test_motion_refused_while_capture_job_runs(client, svc):
     svc.job = {"state": "running"}
-    result = call(svc, "close_barrel")
-    assert result["isError"] is True
-    assert "stop_job" in result["content"][0]["text"]
+    r = client.post("/api/close_barrel")
+    assert (r.status_code, r.json()["code"]) == (409, "busy")
+    assert "stop_job" in call(client, "close_barrel")["content"][0]["text"]
 
 
-def test_notification_gets_no_response():
-    assert asyncio.run(handle_rpc(service(), {"jsonrpc": "2.0", "method": "notifications/initialized"})) is None
+def test_status_while_job_runs_skips_scope_access(client, svc):
+    svc.job = {"state": "running", "id": "ab", "frames": 5}
+    body = client.get("/api/status").json()
+    assert body["job"]["state"] == "running" and body["rotation"] is None
 
 
-def test_tools_list_is_valid_json_schema_shape():
-    response = asyncio.run(handle_rpc(service(), {"id": 2, "method": "tools/list"}))
-    assert json.dumps(response)
-    assert all(t["inputSchema"]["type"] == "object" for t in response["result"]["tools"])
+def test_metrics_endpoint_uses_the_prometheus_content_type(client):
+    r = client.get("/metrics")
+    assert r.headers["content-type"] == "text/plain; version=0.0.4"
+    assert r.text == "dwarf3_scope_up 1\n"
 
 
-def test_metrics_endpoint_uses_the_prometheus_content_type():
-    class Relay:
-        def render_metrics(self):
-            return "dwarf3_scope_up 1\n"
-
-    class Writer:
-        data = b""
-
-        def write(self, data):
-            self.data += data
-
-        async def drain(self):
-            pass
-
-        def close(self):
-            pass
-
-    async def scenario():
-        reader = asyncio.StreamReader()
-        reader.feed_data(b"GET /metrics HTTP/1.1\r\nHost: x\r\n\r\n")
-        writer = Writer()
-        await handle_http(Service(Relay(), "scope", None), reader, writer)
-        return writer.data
-
-    response = asyncio.run(scenario())
-    assert b"Content-Type: text/plain; version=0.0.4" in response
-    assert response.endswith(b"dwarf3_scope_up 1\n")
+def test_committed_spec_matches_code():
+    for name, text in generated().items():
+        assert (DOCS / name).read_text() == text, f"{name} is stale: python -m scripts.export_spec"

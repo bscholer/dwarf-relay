@@ -1,0 +1,578 @@
+[
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "description": "Focus at infinity and plate solve. Needs a clear view of stars.",
+    "inputSchema": {
+      "properties": {},
+      "type": "object"
+    },
+    "name": "calibrate",
+    "outputSchema": {
+      "properties": {
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "Message",
+      "type": "object"
+    },
+    "title": "Focus and plate solve"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "description": "Fold the scope to the closed position.",
+    "inputSchema": {
+      "properties": {},
+      "type": "object"
+    },
+    "name": "close_barrel",
+    "outputSchema": {
+      "properties": {
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "Message",
+      "type": "object"
+    },
+    "title": "Close the barrel"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "description": "Slew to a target and track it. Refuses a target near the Sun.",
+    "inputSchema": {
+      "properties": {
+        "dec_degrees": {
+          "title": "Dec Degrees",
+          "type": "number"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "ra_hours": {
+          "title": "Ra Hours",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "ra_hours",
+        "dec_degrees"
+      ],
+      "title": "GotoIn",
+      "type": "object"
+    },
+    "name": "goto",
+    "outputSchema": {
+      "properties": {
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "Message",
+      "type": "object"
+    },
+    "title": "Slew to a target"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "List master darks on the scope.",
+    "inputSchema": {
+      "properties": {
+        "wide": {
+          "default": false,
+          "description": "true for the wide camera",
+          "title": "Wide",
+          "type": "boolean"
+        }
+      },
+      "title": "CameraIn",
+      "type": "object"
+    },
+    "name": "list_darks",
+    "outputSchema": {
+      "properties": {
+        "darks": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Darks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "darks"
+      ],
+      "title": "DarkList",
+      "type": "object"
+    },
+    "title": "List master darks"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "List capture session folders on the scope.",
+    "inputSchema": {
+      "properties": {},
+      "type": "object"
+    },
+    "name": "list_sessions",
+    "outputSchema": {
+      "properties": {
+        "sessions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Sessions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "sessions"
+      ],
+      "title": "SessionList",
+      "type": "object"
+    },
+    "title": "List capture sessions"
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "description": "Move with the joystick. Angle 0 turns right. Seconds has a limit of 5.",
+    "inputSchema": {
+      "properties": {
+        "angle": {
+          "description": "Joystick angle in degrees. 0 turns right.",
+          "title": "Angle",
+          "type": "number"
+        },
+        "length": {
+          "description": "Joystick deflection, 0 to 1.",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Length",
+          "type": "number"
+        },
+        "seconds": {
+          "description": "Duration in seconds, 5 at most.",
+          "exclusiveMinimum": 0,
+          "maximum": 5,
+          "title": "Seconds",
+          "type": "number"
+        }
+      },
+      "required": [
+        "angle",
+        "length",
+        "seconds"
+      ],
+      "title": "MoveIn",
+      "type": "object"
+    },
+    "name": "move",
+    "outputSchema": {
+      "properties": {
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "Message",
+      "type": "object"
+    },
+    "title": "Move with the joystick"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "description": "Set time and location, enter astro mode, home the motors, and point straight up.",
+    "inputSchema": {
+      "properties": {},
+      "type": "object"
+    },
+    "name": "prepare",
+    "outputSchema": {
+      "properties": {
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "Message",
+      "type": "object"
+    },
+    "title": "Prepare the scope"
+  },
+  {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "description": "Start a capture job that stops at the frame count. Exposure is 15, 30, or 60. Filter is vis, astro, or duo.",
+    "inputSchema": {
+      "properties": {
+        "exposure": {
+          "default": "15",
+          "description": "Seconds per frame: 15, 30, or 60.",
+          "title": "Exposure",
+          "type": "string"
+        },
+        "filter": {
+          "default": "duo",
+          "description": "vis, astro, or duo.",
+          "title": "Filter",
+          "type": "string"
+        },
+        "frames": {
+          "maximum": 500,
+          "minimum": 1,
+          "title": "Frames",
+          "type": "integer"
+        },
+        "gain": {
+          "default": 60,
+          "title": "Gain",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "frames"
+      ],
+      "title": "CaptureIn",
+      "type": "object"
+    },
+    "name": "start_capture",
+    "outputSchema": {
+      "properties": {
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        },
+        "frames": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frames"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "session": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session"
+        },
+        "state": {
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "title": "Job",
+      "type": "object"
+    },
+    "title": "Start a capture job"
+  },
+  {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "description": "Start a dark capture at gain 60. Close the barrel first. The scope sends no end signal.",
+    "inputSchema": {
+      "properties": {
+        "exposure": {
+          "default": "15",
+          "description": "Seconds per frame: 15, 30, or 60.",
+          "title": "Exposure",
+          "type": "string"
+        },
+        "frames": {
+          "maximum": 500,
+          "minimum": 1,
+          "title": "Frames",
+          "type": "integer"
+        },
+        "wide": {
+          "default": false,
+          "description": "true for the wide camera",
+          "title": "Wide",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "frames"
+      ],
+      "title": "DarkIn",
+      "type": "object"
+    },
+    "name": "start_dark",
+    "outputSchema": {
+      "properties": {
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "Message",
+      "type": "object"
+    },
+    "title": "Start a dark capture"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "Read motor positions, app connection, dark counts, and the job state.",
+    "inputSchema": {
+      "properties": {},
+      "type": "object"
+    },
+    "name": "status",
+    "outputSchema": {
+      "$defs": {
+        "Job": {
+          "properties": {
+            "error": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Error"
+            },
+            "frames": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Frames"
+            },
+            "id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Id"
+            },
+            "session": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Session"
+            },
+            "state": {
+              "title": "State",
+              "type": "string"
+            }
+          },
+          "required": [
+            "state"
+          ],
+          "title": "Job",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "app_connected": {
+          "title": "App Connected",
+          "type": "boolean"
+        },
+        "job": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Job"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pitch": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pitch"
+        },
+        "rotation": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rotation"
+        },
+        "tele_darks": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tele Darks"
+        },
+        "wide_darks": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Wide Darks"
+        }
+      },
+      "required": [
+        "app_connected",
+        "job"
+      ],
+      "title": "StatusOut",
+      "type": "object"
+    },
+    "title": "Read scope status"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "description": "Stop the running capture job.",
+    "inputSchema": {
+      "properties": {},
+      "type": "object"
+    },
+    "name": "stop_job",
+    "outputSchema": {
+      "properties": {
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "Message",
+      "type": "object"
+    },
+    "title": "Stop the capture job"
+  }
+]

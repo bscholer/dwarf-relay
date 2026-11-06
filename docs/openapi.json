@@ -1,0 +1,940 @@
+{
+  "components": {
+    "schemas": {
+      "CaptureIn": {
+        "properties": {
+          "exposure": {
+            "default": "15",
+            "description": "Seconds per frame: 15, 30, or 60.",
+            "title": "Exposure",
+            "type": "string"
+          },
+          "filter": {
+            "default": "duo",
+            "description": "vis, astro, or duo.",
+            "title": "Filter",
+            "type": "string"
+          },
+          "frames": {
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Frames",
+            "type": "integer"
+          },
+          "gain": {
+            "default": 60,
+            "title": "Gain",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "frames"
+        ],
+        "title": "CaptureIn",
+        "type": "object"
+      },
+      "DarkIn": {
+        "properties": {
+          "exposure": {
+            "default": "15",
+            "description": "Seconds per frame: 15, 30, or 60.",
+            "title": "Exposure",
+            "type": "string"
+          },
+          "frames": {
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Frames",
+            "type": "integer"
+          },
+          "wide": {
+            "default": false,
+            "description": "true for the wide camera",
+            "title": "Wide",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "frames"
+        ],
+        "title": "DarkIn",
+        "type": "object"
+      },
+      "DarkList": {
+        "properties": {
+          "darks": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Darks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "darks"
+        ],
+        "title": "DarkList",
+        "type": "object"
+      },
+      "ErrorBody": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail",
+          "code"
+        ],
+        "title": "ErrorBody",
+        "type": "object"
+      },
+      "GotoIn": {
+        "properties": {
+          "dec_degrees": {
+            "title": "Dec Degrees",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "ra_hours": {
+            "title": "Ra Hours",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "ra_hours",
+          "dec_degrees"
+        ],
+        "title": "GotoIn",
+        "type": "object"
+      },
+      "Job": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "frames": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frames"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "session": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "Job",
+        "type": "object"
+      },
+      "Message": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "Message",
+        "type": "object"
+      },
+      "MoveIn": {
+        "properties": {
+          "angle": {
+            "description": "Joystick angle in degrees. 0 turns right.",
+            "title": "Angle",
+            "type": "number"
+          },
+          "length": {
+            "description": "Joystick deflection, 0 to 1.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Length",
+            "type": "number"
+          },
+          "seconds": {
+            "description": "Duration in seconds, 5 at most.",
+            "exclusiveMinimum": 0.0,
+            "maximum": 5.0,
+            "title": "Seconds",
+            "type": "number"
+          }
+        },
+        "required": [
+          "angle",
+          "length",
+          "seconds"
+        ],
+        "title": "MoveIn",
+        "type": "object"
+      },
+      "SessionList": {
+        "properties": {
+          "sessions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sessions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sessions"
+        ],
+        "title": "SessionList",
+        "type": "object"
+      },
+      "StatusOut": {
+        "properties": {
+          "app_connected": {
+            "title": "App Connected",
+            "type": "boolean"
+          },
+          "job": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Job"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pitch": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pitch"
+          },
+          "rotation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rotation"
+          },
+          "tele_darks": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tele Darks"
+          },
+          "wide_darks": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wide Darks"
+          }
+        },
+        "required": [
+          "app_connected",
+          "job"
+        ],
+        "title": "StatusOut",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "dwarf3 relay",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/calibrate": {
+      "post": {
+        "description": "Focus at infinity and plate solve. Needs a clear view of stars.",
+        "operationId": "calibrateScope",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "busy"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "invalid_request, sun_too_close"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "scope_error"
+          }
+        },
+        "summary": "Calibratescope",
+        "tags": [
+          "Scope"
+        ]
+      }
+    },
+    "/api/capture": {
+      "post": {
+        "description": "Start a capture job that stops at the frame count.",
+        "operationId": "startCapture",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaptureIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "busy"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "invalid_request, sun_too_close"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "scope_error"
+          }
+        },
+        "summary": "Startcapture",
+        "tags": [
+          "Capture"
+        ]
+      }
+    },
+    "/api/capture/stop": {
+      "post": {
+        "description": "Stop the running capture job.",
+        "operationId": "stopCapture",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "busy"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "invalid_request, sun_too_close"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "scope_error"
+          }
+        },
+        "summary": "Stopcapture",
+        "tags": [
+          "Capture"
+        ]
+      }
+    },
+    "/api/close_barrel": {
+      "post": {
+        "description": "Fold the scope to the closed position.",
+        "operationId": "closeBarrel",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "busy"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "invalid_request, sun_too_close"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "scope_error"
+          }
+        },
+        "summary": "Closebarrel",
+        "tags": [
+          "Scope"
+        ]
+      }
+    },
+    "/api/dark": {
+      "post": {
+        "description": "Start a dark capture at gain 60. Close the barrel first.",
+        "operationId": "startDark",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DarkIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "busy"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "invalid_request, sun_too_close"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "scope_error"
+          }
+        },
+        "summary": "Startdark",
+        "tags": [
+          "Darks"
+        ]
+      }
+    },
+    "/api/darks": {
+      "get": {
+        "description": "List master darks on the scope.",
+        "operationId": "listDarks",
+        "parameters": [
+          {
+            "description": "true for the wide camera",
+            "in": "query",
+            "name": "wide",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "true for the wide camera",
+              "title": "Wide",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DarkList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "busy"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "invalid_request, sun_too_close"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "scope_error"
+          }
+        },
+        "summary": "Listdarks",
+        "tags": [
+          "Darks"
+        ]
+      }
+    },
+    "/api/goto": {
+      "post": {
+        "description": "Slew to a target and track it. Refuses a target near the Sun.",
+        "operationId": "gotoTarget",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GotoIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "busy"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "invalid_request, sun_too_close"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "scope_error"
+          }
+        },
+        "summary": "Gototarget",
+        "tags": [
+          "Scope"
+        ]
+      }
+    },
+    "/api/move": {
+      "post": {
+        "description": "Move with the joystick for a short time.",
+        "operationId": "moveScope",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "busy"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "invalid_request, sun_too_close"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "scope_error"
+          }
+        },
+        "summary": "Movescope",
+        "tags": [
+          "Scope"
+        ]
+      }
+    },
+    "/api/prepare": {
+      "post": {
+        "description": "Set time and location, enter astro mode, home the motors, and point straight up.",
+        "operationId": "prepareScope",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "busy"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "invalid_request, sun_too_close"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "scope_error"
+          }
+        },
+        "summary": "Preparescope",
+        "tags": [
+          "Scope"
+        ]
+      }
+    },
+    "/api/sessions": {
+      "get": {
+        "description": "List capture session folders on the scope.",
+        "operationId": "listSessions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "busy"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "invalid_request, sun_too_close"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "scope_error"
+          }
+        },
+        "summary": "Listsessions",
+        "tags": [
+          "Files"
+        ]
+      }
+    },
+    "/api/status": {
+      "get": {
+        "description": "Read motor positions, app connection, dark counts, and the job state.",
+        "operationId": "getStatus",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "busy"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "invalid_request, sun_too_close"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "scope_error"
+          }
+        },
+        "summary": "Getstatus",
+        "tags": [
+          "Scope"
+        ]
+      }
+    }
+  }
+}

@@ -15,7 +15,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from . import mcp_server
+from . import api
 from .metrics import Metrics, command_name, summary
 from .wire import field_bytes, field_int, parse
 
@@ -377,7 +377,7 @@ async def run(upstream: str, listen: str, log_dir: Path, mcp_port: int = 9902) -
     await asyncio.get_running_loop().create_datagram_endpoint(
         lambda: UdpRelay(upstream, CONTROL_PORT, log), local_addr=(listen, CONTROL_PORT)
     )
-    await mcp_server.serve(relay, upstream, listen, mcp_port)
+    await api.serve(relay, upstream, listen, mcp_port)
     probe = asyncio.create_task(probe_scope(relay, upstream))
     print(f"relay ready. Enter {os.environ.get('DWARF3_RELAY_IP') or local_ip(upstream)} in the app. MCP port {mcp_port}. Log: {log.path}", flush=True)
     await probe
