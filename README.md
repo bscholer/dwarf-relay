@@ -28,7 +28,18 @@ dwarf3 close
 dwarf3 mirror ./data/astronomy
 ```
 
-Set `DWARF3_HOST`, `DWARF3_LAT`, `DWARF3_LON`, `DWARF3_UTC_OFFSET`, and `DWARF3_TZ` to change the defaults.
+Set `DWARF3_HOST` for each command. `prepare` also needs `DWARF3_LAT`, `DWARF3_LON`, `DWARF3_UTC_OFFSET`, and `DWARF3_TZ`.
+
+## Relay
+
+`dwarf3 proxy` lets the DWARFLAB app and local tools share the one control connection. Enter the relay IP in the app. The app shows the relay as `DWARF3_RELAY1`.
+
+```sh
+dwarf3 proxy --log-dir data/proxy
+dwarf3 nudge --angle 0 --length 0.8 --seconds 2
+```
+
+The relay logs decoded traffic as JSONL. It redacts passwords from API replies, but UDP replies hold the MAC and serial number. Do not share these logs.
 
 ## Status
 
@@ -39,6 +50,8 @@ Set `DWARF3_HOST`, `DWARF3_LAT`, `DWARF3_LON`, `DWARF3_UTC_OFFSET`, and `DWARF3_
 | `prepare` | Protocol works in a test script |
 | `mirror` | Copied one 16.8 MB frame. Stalled when the scope left the network, with no retry yet |
 | `stop` | Works in a test script |
+| `proxy` | App connects, previews, and controls the scope through it |
+| `nudge` | Moves the scope while the app stays connected |
 | `calibrate` | Ran. Failed under cloud with `-11504` |
 | `capture` frame count | Not tested on the scope. Unit test only |
 | `goto`, autofocus, `dark --wide` | Not tested |

@@ -1,16 +1,14 @@
 """Command line for the DWARF 3."""
 import argparse
+import asyncio
 import os
+import time
 from pathlib import Path
 
+from . import proxy
 from .files import Album
-from .scope import ALBUM_ROOT, FILTERS, MOTOR_PITCH, MOTOR_ROTATION, Scope
-
-LAT = float(os.environ.get("DWARF3_LAT", "0.0"))
-LON = float(os.environ.get("DWARF3_LON", "-100.0"))
-UTC_OFFSET = float(os.environ.get("DWARF3_UTC_OFFSET", "-8"))
-TIMEZONE = os.environ.get("DWARF3_TZ", "America/Los_Angeles")
-
+from .scope import ALBUM_ROOT, FILTERS, JOYSTICK, JOYSTICK_STOP, MODULE_MOTOR, MOTOR_PITCH, MOTOR_ROTATION, Scope
+from .wire import field_double
 
 def session(args, fn):
     scope = Scope(args.host)
@@ -38,7 +36,8 @@ def cmd_dark(args):
 
 def cmd_prepare(args):
     def run(s):
-        s.prepare(LAT, LON, UTC_OFFSET, TIMEZONE)
+        s.prepare(float(os.environ["DWARF3_LAT"]), float(os.environ["DWARF3_LON"]),
+                  float(os.environ["DWARF3_UTC_OFFSET"]), os.environ["DWARF3_TZ"])
         s.home()
         s.point_up()
     session(args, run)
@@ -78,9 +77,27 @@ def cmd_mirror(args):
         album.close()
 
 
+def cmd_proxy(args):
+    asyncio.run(proxy.run(args.host, args.listen, Path(args.log_dir)))
+
+
+def cmd_nudge(args):
+    """Move the scope with the joystick command through a running relay."""
+    client = proxy.InjectClient()
+    try:
+        end = time.time() + args.seconds
+        vector = field_double(1, args.angle) + field_double(2, args.length)
+        while time.time() < end:
+            client.send(MODULE_MOTOR, JOYSTICK, vector)
+            time.sleep(0.05)
+    finally:
+        client.send(MODULE_MOTOR, JOYSTICK_STOP)
+        client.close()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="dwarf3")
-    parser.add_argument("--host", default=os.environ.get("DWARF3_HOST", "192.0.2.10"))
+    parser.add_argument("--host", default=os.environ.get("DWARF3_HOST"))
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("status").set_defaults(fn=cmd_status)
@@ -113,7 +130,19 @@ def main() -> None:
     p.add_argument("--path", default=ALBUM_ROOT)
     p.set_defaults(fn=cmd_mirror)
 
+    p = sub.add_parser("nudge")
+    p.add_argument("--angle", type=float, default=0.0, help="joystick angle in degrees")
+    p.add_argument("--length", type=float, default=0.3, help="joystick deflection, 0 to 1")
+    p.add_argument("--seconds", type=float, default=1.0)
+    p.set_defaults(fn=cmd_nudge)
+    p = sub.add_parser("proxy")
+    p.add_argument("--listen", default="0.0.0.0")
+    p.add_argument("--log-dir", default="data/proxy")
+    p.set_defaults(fn=cmd_proxy)
+
     args = parser.parse_args()
+    if not args.host and args.command != "nudge":
+        parser.error("set --host or DWARF3_HOST")
     args.fn(args)
 
 
