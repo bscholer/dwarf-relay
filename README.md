@@ -37,7 +37,7 @@ Set `DWARF3_HOST`, `DWARF3_LAT`, `DWARF3_LON`, `DWARF3_UTC_OFFSET`, and `DWARF3_
 | `status`, `darks` | Works |
 | `dark` tele | Protocol works in a test script |
 | `prepare` | Protocol works in a test script |
-| `mirror` | FTP listing and download work |
+| `mirror` | Copied one 16.8 MB frame. Stalled when the scope left the network, with no retry yet |
 | `stop` | Works in a test script |
 | `calibrate` | Ran. Failed under cloud with `-11504` |
 | `capture` frame count | Not tested on the scope. Unit test only |
