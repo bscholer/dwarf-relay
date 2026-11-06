@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from dwarf3 import api
 from dwarf3.endpoints import tool_manifest
 from dwarf3.mcp_server import Service, require_safe_target, sun_position
+from scripts.conformance import check
 from scripts.export_spec import DOCS, generated
 
 
@@ -96,3 +97,17 @@ def test_metrics_endpoint_uses_the_prometheus_content_type(client):
 def test_committed_spec_matches_code():
     for name, text in generated().items():
         assert (DOCS / name).read_text() == text, f"{name} is stale: python -m scripts.export_spec"
+
+
+def test_service_conforms_to_the_spec(client):
+    assert check(lambda path: client.get(path).json()) == []
+
+
+def test_conformance_reports_a_missing_operation(client):
+    def get_json(path):
+        data = client.get(path).json()
+        if path == "/openapi.json":
+            del data["paths"]["/api/goto"]
+        return data
+
+    assert check(get_json) == ["missing operation gotoTarget"]

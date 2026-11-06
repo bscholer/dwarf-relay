@@ -25,6 +25,18 @@ class Message(BaseModel):
     message: str
 
 
+class ServiceInfo(BaseModel):
+    name: str
+    vendor: str
+    model: str
+
+
+class CapabilitiesOut(BaseModel):
+    spec_version: str
+    service: ServiceInfo
+    capabilities: list[str]
+
+
 class CameraIn(BaseModel):
     wide: bool = Field(False, description="true for the wide camera")
 
@@ -91,6 +103,17 @@ def read_only(**extra: bool) -> ToolAnnotations:
 
 def acts(**extra: bool) -> ToolAnnotations:
     return ToolAnnotations(read_only_hint=False, open_world_hint=False, **extra)
+
+
+@mcp_tool(name="capabilities", title="List service capabilities",
+          description="Return the spec version and the features this service supports.",
+          annotations=read_only(), error_map=TOOL_ERRORS)
+@http_endpoint(path="/api/capabilities", operation_id="getCapabilities", method="GET",
+               response_model=CapabilitiesOut,
+               description="Return the spec version and the features this service supports.",
+               tags=["Scope"], error_map=CONTROL_ERRORS)
+def capabilities() -> CapabilitiesOut:
+    return CapabilitiesOut(**svc().capabilities())
 
 
 @mcp_tool(name="status", title="Read scope status",

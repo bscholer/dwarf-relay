@@ -7,6 +7,7 @@ import uuid
 
 from .client import Client
 from .files import Album
+from .spec import CAPABILITY_OPERATIONS, SPEC_VERSION
 from .scope import ALBUM_ROOT, EXPOSURE_INDEX, FILTERS, MOTOR_PITCH, MOTOR_ROTATION, Scope
 
 MIN_SUN_SEPARATION_DEG = 30.0
@@ -72,6 +73,10 @@ class Service:
             if scope:
                 scope.close()
             self.lock.release()
+
+    def capabilities(self) -> dict:
+        return {"spec_version": SPEC_VERSION, "service": {"name": "dwarf3-relay", "vendor": "DWARFLAB", "model": "DWARF 3"},
+                "capabilities": sorted(CAPABILITY_OPERATIONS)}
 
     def status(self) -> dict:
         def read(s):

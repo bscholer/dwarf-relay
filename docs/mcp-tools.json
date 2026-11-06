@@ -30,6 +30,70 @@
     "annotations": {
       "idempotentHint": true,
       "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "Return the spec version and the features this service supports.",
+    "inputSchema": {
+      "properties": {},
+      "type": "object"
+    },
+    "name": "capabilities",
+    "outputSchema": {
+      "$defs": {
+        "ServiceInfo": {
+          "properties": {
+            "model": {
+              "title": "Model",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "vendor": {
+              "title": "Vendor",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "vendor",
+            "model"
+          ],
+          "title": "ServiceInfo",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "capabilities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Capabilities",
+          "type": "array"
+        },
+        "service": {
+          "$ref": "#/$defs/ServiceInfo"
+        },
+        "spec_version": {
+          "title": "Spec Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "spec_version",
+        "service",
+        "capabilities"
+      ],
+      "title": "CapabilitiesOut",
+      "type": "object"
+    },
+    "title": "List service capabilities"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": false,
       "readOnlyHint": false
     },
     "description": "Fold the scope to the closed position.",
