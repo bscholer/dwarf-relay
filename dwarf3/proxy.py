@@ -16,6 +16,7 @@ from datetime import datetime
 from pathlib import Path
 
 from . import mcp_server
+from .metrics import Metrics, command_name, summary
 from .wire import field_bytes, field_int, parse
 
 CONTROL_PORT = 9900
@@ -125,13 +126,16 @@ class Log:
 
     def write(self, **event) -> None:
         self.file.write(json.dumps({"t": round(time.time(), 3), **event}) + "\n")
+        line = summary(event)
+        if line:
+            print(json.dumps(line), flush=True)
 
 
 class AppLink:
     """The live app connection, with the packet header that the app uses."""
 
-    def __init__(self, conn: int, ws: WsStream, writer):
-        self.conn, self.ws, self.writer = conn, ws, writer
+    def __init__(self, conn: int, ws: WsStream, writer, local: bool = False):
+        self.conn, self.ws, self.writer, self.local = conn, ws, writer, local
         self.header: dict[int, object] | None = None
 
     def packet(self, module: int, cmd: int, data: bytes) -> bytes:
@@ -148,6 +152,12 @@ class Relay:
         self.connection_id = 0
         self.app_link: AppLink | None = None
         self.subscribers: list[queue.Queue] = []
+        self.metrics = Metrics()
+
+    def render_metrics(self) -> str:
+        link = self.app_link
+        self.metrics.set("app_connected", 1 if link and not link.local else 0)
+        return self.metrics.render()
 
     def _upstream_port(self, port: int) -> int:
         return port
@@ -171,15 +181,15 @@ class Relay:
             writer.close()
             return
         await asyncio.gather(
-            self._pump(conn, port, "app", reader, up_writer),
+            self._pump(conn, port, "app", reader, up_writer, local=bool(peer) and peer[0] == "127.0.0.1"),
             self._pump(conn, port, "scope", up_reader, writer),
             return_exceptions=True,
         )
 
-    async def _pump(self, conn: int, port: int, source: str, reader, writer) -> None:
+    async def _pump(self, conn: int, port: int, source: str, reader, writer, local: bool = False) -> None:
         ws = WsStream() if port == CONTROL_PORT else None
         api = bytearray() if port == API_PORT else None
-        link = AppLink(conn, ws, writer) if ws is not None and source == "app" else None
+        link = AppLink(conn, ws, writer, local) if ws is not None and source == "app" else None
         total = 0
         if link:
             self.app_link = link
@@ -190,6 +200,7 @@ class Relay:
                     self._log_ws(conn, source, ws, chunk, link)
                 if api is not None and len(api) < MAX_API_CAPTURE:
                     api += chunk
+                self.metrics.add("relay_bytes_total", len(chunk), port=port, source=source)
                 writer.write(rename(chunk) if api is not None and source == "scope" else chunk)
                 await writer.drain()
                 total += len(chunk)
@@ -220,7 +231,9 @@ class Relay:
                 try:
                     if link:
                         link.header = {k: v for k, v in parse(payload) if k in (1, 2, 3, 8)}
-                    self.log.write(event="ws", conn=conn, source=source, **decode_packet(payload))
+                    decoded = decode_packet(payload)
+                    self.log.write(event="ws", conn=conn, source=source, **decoded)
+                    self.metrics.observe(source, decoded["cmd"], decoded["type"], decoded.get("fields") or [])
                     if source == "scope":
                         self._publish(payload)
                 except (ValueError, IndexError, struct.error):
@@ -246,6 +259,7 @@ class Relay:
         link.writer.write(client_frame(link.packet(module, cmd, data)))
         await link.writer.drain()
         self.log.write(event="inject", conn=link.conn, module=module, cmd=cmd, data=data.hex())
+        self.metrics.add("commands_total", source="inject", command=command_name(cmd))
 
     async def handle_inject(self, reader, writer) -> None:
         while line := await reader.readline():
@@ -342,6 +356,18 @@ def local_ip(upstream: str) -> str:
         return s.getsockname()[0]
 
 
+async def probe_scope(relay: Relay, upstream: str, interval: float = 30.0) -> None:
+    """Track scope reachability on the API port, which holds no control slot."""
+    while True:
+        try:
+            _, writer = await asyncio.wait_for(asyncio.open_connection(upstream, API_PORT), 5)
+            writer.close()
+            relay.metrics.set("scope_up", 1)
+        except (OSError, asyncio.TimeoutError):
+            relay.metrics.set("scope_up", 0)
+        await asyncio.sleep(interval)
+
+
 async def run(upstream: str, listen: str, log_dir: Path, mcp_port: int = 9902) -> None:
     log = Log(log_dir / f"proxy-{datetime.now():%Y%m%d-%H%M%S}.jsonl")
     relay = Relay(upstream, log)
@@ -351,5 +377,6 @@ async def run(upstream: str, listen: str, log_dir: Path, mcp_port: int = 9902) -
         lambda: UdpRelay(upstream, CONTROL_PORT, log), local_addr=(listen, CONTROL_PORT)
     )
     await mcp_server.serve(relay, upstream, listen, mcp_port)
-    print(f"relay ready. Enter {local_ip(upstream)} in the app. MCP port {mcp_port}. Log: {log.path}", flush=True)
-    await asyncio.Event().wait()
+    probe = asyncio.create_task(probe_scope(relay, upstream))
+    print(f"relay ready. Enter {os.environ.get('DWARF3_RELAY_IP') or local_ip(upstream)} in the app. MCP port {mcp_port}. Log: {log.path}", flush=True)
+    await probe

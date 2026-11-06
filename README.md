@@ -47,6 +47,10 @@ The relay also serves MCP over HTTP at `http://<relay-ip>:9902/mcp`. Commands us
 
 Tools: `status`, `list_sessions`, `list_darks`, `prepare`, `move`, `close_barrel`, `calibrate`, `goto`, `start_capture`, `stop_job`, `start_dark`. `goto` refuses a target within 30 degrees of the Sun. Only `status`, `list_sessions`, `list_darks`, and `move` have a live test.
 
+## Metrics and logs
+
+`GET :9902/metrics` serves Prometheus metrics: scope reachability, app connection, battery, SD space, temperatures, capture and calibration state, commands, errors, and traffic. Scope values update only while a client is connected. Stdout has one JSON line for each command or error, with no payloads.
+
 ## Status
 
 | Function | Live test |

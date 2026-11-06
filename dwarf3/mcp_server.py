@@ -228,6 +228,8 @@ async def handle_http(service: Service, reader, writer) -> None:
         if path == "/mcp" and method == "POST":
             response = await handle_rpc(service, json.loads(body))
             status, payload = ("202 Accepted", b"") if response is None else ("200 OK", json.dumps(response).encode())
+        elif path == "/metrics" and method == "GET":
+            status, payload = "200 OK", service.relay.render_metrics().encode()
         elif path == "/mcp":
             status = "405 Method Not Allowed"
         writer.write(f"HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {len(payload)}\r\nConnection: close\r\n\r\n".encode() + payload)
