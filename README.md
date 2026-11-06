@@ -41,6 +41,12 @@ dwarf3 nudge --angle 0 --length 0.8 --seconds 2
 
 The relay logs decoded traffic as JSONL. It redacts passwords from API replies, but UDP replies hold the MAC and serial number. Do not share these logs.
 
+## MCP
+
+The relay also serves MCP over HTTP at `http://<relay-ip>:9902/mcp`. Commands use the app connection if the app is connected. The endpoint has no login, as the scope has none.
+
+Tools: `status`, `list_sessions`, `list_darks`, `prepare`, `move`, `close_barrel`, `calibrate`, `goto`, `start_capture`, `stop_job`, `start_dark`. `goto` refuses a target within 30 degrees of the Sun. Only `status`, `list_sessions`, `list_darks`, and `move` have a live test.
+
 ## Status
 
 | Function | Live test |

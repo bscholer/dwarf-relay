@@ -39,10 +39,10 @@ def reply_code(fields, code_field: int = 1) -> int | None:
 
 
 class Scope:
-    def __init__(self, host: str, log=print):
+    def __init__(self, host: str, log=print, client=None):
         self.host = host
         self.log = log
-        self.client = Client(host)
+        self.client = client or Client(host)
 
     def _ok(self, name: str, fields, code_field: int = 1) -> None:
         code = reply_code(fields, code_field)
@@ -117,7 +117,7 @@ class Scope:
         self._ok("gain", c.call(MODULE_PARAMS, 16701, field_int(1, PARAM_GAIN) + field_int(2, 1) + field_int(3, gain)))
         self._ok("filter", c.call(MODULE_PARAMS, 16703, field_int(1, PARAM_IR_FILTER) + field_int(2, FILTERS[filter_name])))
 
-    def capture(self, frames: int, filter_name: str, exposure_s: float) -> str:
+    def capture(self, frames: int, filter_name: str, exposure_s: float, cancel=None) -> str:
         """Capture frames and stop at the count. Return the session folder.
 
         Capture start resets stackCount to 999, so the frame count comes from the
@@ -132,7 +132,7 @@ class Scope:
             session = None
             count = 0
             next_poll = time.time() + 5
-            while time.time() < end:
+            while time.time() < end and not (cancel and cancel.is_set()):
                 packet = self.client.recv()
                 if packet and packet[0] == 11005 and packet[1] != 0:
                     self.log(f"capture start reply: code {reply_code(packet[2])}")
@@ -171,6 +171,16 @@ class Scope:
         """Start a dark capture. The scope sends no reply, so watch the dark folder for completion."""
         data = field_int(1, EXPOSURE_INDEX[exposure]) + field_int(2, DARK_GAIN_INDEX[gain]) + field_int(4, frames)
         self.client.send(MODULE_ASTRO, 11025 if wide else 11021, data)
+
+    def joystick(self, angle: float, length: float, seconds: float) -> None:
+        vector = field_double(1, angle) + field_double(2, length)
+        end = time.time() + seconds
+        try:
+            while time.time() < end:
+                self.client.send(MODULE_MOTOR, JOYSTICK, vector)
+                time.sleep(0.05)
+        finally:
+            self.client.send(MODULE_MOTOR, JOYSTICK_STOP)
 
     def close(self) -> None:
         self.client.close()

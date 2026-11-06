@@ -7,6 +7,7 @@ scope accepts only one control client.
 import asyncio
 import json
 import os
+import queue
 import re
 import socket
 import struct
@@ -14,6 +15,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from . import mcp_server
 from .wire import field_bytes, field_int, parse
 
 CONTROL_PORT = 9900
@@ -145,6 +147,7 @@ class Relay:
         self.ports = ports
         self.connection_id = 0
         self.app_link: AppLink | None = None
+        self.subscribers: list[queue.Queue] = []
 
     def _upstream_port(self, port: int) -> int:
         return port
@@ -218,9 +221,18 @@ class Relay:
                     if link:
                         link.header = {k: v for k, v in parse(payload) if k in (1, 2, 3, 8)}
                     self.log.write(event="ws", conn=conn, source=source, **decode_packet(payload))
+                    if source == "scope":
+                        self._publish(payload)
                 except (ValueError, IndexError, struct.error):
                     self.log.write(event="ws_raw", conn=conn, source=source, hex=payload.hex())
 
+
+    def _publish(self, payload: bytes) -> None:
+        if self.subscribers:
+            packet = dict(parse(payload))
+            item = (packet.get(5), packet.get(6), parse(packet.get(7, b"")))
+            for subscriber in self.subscribers:
+                subscriber.put(item)
 
     async def inject(self, module: int, cmd: int, data: bytes) -> None:
         link = self.app_link
@@ -246,6 +258,36 @@ class Relay:
             writer.write(json.dumps(reply).encode() + b"\n")
             await writer.drain()
         writer.close()
+
+
+class RelayClient:
+    """Scope client that shares the live app connection, for use from worker threads."""
+
+    def __init__(self, relay: Relay, loop: asyncio.AbstractEventLoop, recv_timeout: float = 2.0):
+        self.relay, self.loop, self.recv_timeout = relay, loop, recv_timeout
+        self.inbox: queue.Queue = queue.Queue()
+        relay.subscribers.append(self.inbox)
+
+    def send(self, module: int, cmd: int, data: bytes = b"") -> None:
+        asyncio.run_coroutine_threadsafe(self.relay.inject(module, cmd, data), self.loop).result(5)
+
+    def recv(self):
+        try:
+            return self.inbox.get(timeout=self.recv_timeout)
+        except queue.Empty:
+            return None
+
+    def call(self, module: int, cmd: int, data: bytes = b"", timeout: float = 20.0):
+        self.send(module, cmd, data)
+        end = time.time() + timeout
+        while time.time() < end:
+            packet = self.recv()
+            if packet and packet[0] == cmd and packet[1] != 0:
+                return packet[2]
+        return None
+
+    def close(self) -> None:
+        self.relay.subscribers.remove(self.inbox)
 
 
 class InjectClient:
@@ -300,7 +342,7 @@ def local_ip(upstream: str) -> str:
         return s.getsockname()[0]
 
 
-async def run(upstream: str, listen: str, log_dir: Path) -> None:
+async def run(upstream: str, listen: str, log_dir: Path, mcp_port: int = 9902) -> None:
     log = Log(log_dir / f"proxy-{datetime.now():%Y%m%d-%H%M%S}.jsonl")
     relay = Relay(upstream, log)
     await relay.serve(listen)
@@ -308,5 +350,6 @@ async def run(upstream: str, listen: str, log_dir: Path) -> None:
     await asyncio.get_running_loop().create_datagram_endpoint(
         lambda: UdpRelay(upstream, CONTROL_PORT, log), local_addr=(listen, CONTROL_PORT)
     )
-    print(f"relay ready. Enter {local_ip(upstream)} in the app. Log: {log.path}", flush=True)
+    await mcp_server.serve(relay, upstream, listen, mcp_port)
+    print(f"relay ready. Enter {local_ip(upstream)} in the app. MCP port {mcp_port}. Log: {log.path}", flush=True)
     await asyncio.Event().wait()

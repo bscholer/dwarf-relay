@@ -2,13 +2,11 @@
 import argparse
 import asyncio
 import os
-import time
 from pathlib import Path
 
 from . import proxy
 from .files import Album
-from .scope import ALBUM_ROOT, FILTERS, JOYSTICK, JOYSTICK_STOP, MODULE_MOTOR, MOTOR_PITCH, MOTOR_ROTATION, Scope
-from .wire import field_double
+from .scope import ALBUM_ROOT, FILTERS, MOTOR_PITCH, MOTOR_ROTATION, Scope
 
 def session(args, fn):
     scope = Scope(args.host)
@@ -85,13 +83,8 @@ def cmd_nudge(args):
     """Move the scope with the joystick command through a running relay."""
     client = proxy.InjectClient()
     try:
-        end = time.time() + args.seconds
-        vector = field_double(1, args.angle) + field_double(2, args.length)
-        while time.time() < end:
-            client.send(MODULE_MOTOR, JOYSTICK, vector)
-            time.sleep(0.05)
+        Scope(args.host, log=print, client=client).joystick(args.angle, args.length, args.seconds)
     finally:
-        client.send(MODULE_MOTOR, JOYSTICK_STOP)
         client.close()
 
 
