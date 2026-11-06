@@ -81,7 +81,7 @@ def test_relay_passes_bytes_unchanged_and_logs_control_traffic(tmp_path):
     assert received == reply
     events = [json.loads(line) for line in (tmp_path / "proxy.jsonl").read_text().splitlines()]
     cmds = {(e["source"], e["cmd"], e["type"]) for e in events if e["event"] == "ws"}
-    assert cmds == {("app", 14011, 0), ("scope", 14011, 3)}
+    assert cmds == {("mcp", 14011, 0), ("scope", 14011, 3)}, "localhost clients are local tools"
 
 
 class FakeWriter:
