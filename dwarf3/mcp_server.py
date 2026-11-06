@@ -224,15 +224,15 @@ async def handle_http(service: Service, reader, writer) -> None:
         method, path, *_ = head[0].split(" ")
         headers = {k.strip().lower(): v.strip() for k, v in (h.split(":", 1) for h in head[1:] if ":" in h)}
         body = await reader.readexactly(int(headers.get("content-length", 0)))
-        status, payload = "404 Not Found", b""
+        status, payload, content_type = "404 Not Found", b"", "application/json"
         if path == "/mcp" and method == "POST":
             response = await handle_rpc(service, json.loads(body))
             status, payload = ("202 Accepted", b"") if response is None else ("200 OK", json.dumps(response).encode())
         elif path == "/metrics" and method == "GET":
-            status, payload = "200 OK", service.relay.render_metrics().encode()
+            status, payload, content_type = "200 OK", service.relay.render_metrics().encode(), "text/plain; version=0.0.4"
         elif path == "/mcp":
             status = "405 Method Not Allowed"
-        writer.write(f"HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {len(payload)}\r\nConnection: close\r\n\r\n".encode() + payload)
+        writer.write(f"HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nContent-Length: {len(payload)}\r\nConnection: close\r\n\r\n".encode() + payload)
         await writer.drain()
     except (asyncio.IncompleteReadError, ConnectionError, ValueError):
         pass

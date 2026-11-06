@@ -84,9 +84,9 @@ def summary(event: dict) -> dict | None:
         return {k: v for k, v in event.items() if k in ("event", "port", "code", "reason", "error")}
     if kind == "open" and event.get("port") == 9900:
         return {"event": "control_open", "peer": event.get("peer")}
-    is_command = kind == "inject" or (kind == "ws" and event.get("source") == "app" and not event.get("type"))
+    is_command = kind == "inject" or (kind == "ws" and event.get("source") in ("app", "mcp") and not event.get("type"))
     if is_command and event.get("cmd") not in QUIET_COMMANDS:
-        return {"event": "command", "source": "inject" if kind == "inject" else "app", "command": command_name(event.get("cmd"))}
+        return {"event": "command", "source": event.get("source", "inject"), "command": command_name(event.get("cmd"))}
     if kind == "ws" and event.get("source") == "scope":
         code = error_code(event.get("fields") or [])
         if code is not None:

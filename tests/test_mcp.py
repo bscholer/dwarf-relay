@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from dwarf3.mcp_server import Service, TOOLS, handle_rpc, require_safe_target, sun_position
+from dwarf3.mcp_server import Service, TOOLS, handle_http, handle_rpc, require_safe_target, sun_position
 
 
 def test_sun_position_at_june_solstice():
@@ -62,3 +62,32 @@ def test_tools_list_is_valid_json_schema_shape():
     response = asyncio.run(handle_rpc(service(), {"id": 2, "method": "tools/list"}))
     assert json.dumps(response)
     assert all(t["inputSchema"]["type"] == "object" for t in response["result"]["tools"])
+
+
+def test_metrics_endpoint_uses_the_prometheus_content_type():
+    class Relay:
+        def render_metrics(self):
+            return "dwarf3_scope_up 1\n"
+
+    class Writer:
+        data = b""
+
+        def write(self, data):
+            self.data += data
+
+        async def drain(self):
+            pass
+
+        def close(self):
+            pass
+
+    async def scenario():
+        reader = asyncio.StreamReader()
+        reader.feed_data(b"GET /metrics HTTP/1.1\r\nHost: x\r\n\r\n")
+        writer = Writer()
+        await handle_http(Service(Relay(), "scope", None), reader, writer)
+        return writer.data
+
+    response = asyncio.run(scenario())
+    assert b"Content-Type: text/plain; version=0.0.4" in response
+    assert response.endswith(b"dwarf3_scope_up 1\n")

@@ -232,8 +232,9 @@ class Relay:
                     if link:
                         link.header = {k: v for k, v in parse(payload) if k in (1, 2, 3, 8)}
                     decoded = decode_packet(payload)
-                    self.log.write(event="ws", conn=conn, source=source, **decoded)
-                    self.metrics.observe(source, decoded["cmd"], decoded["type"], decoded.get("fields") or [])
+                    label = "mcp" if link and link.local else source
+                    self.log.write(event="ws", conn=conn, source=label, **decoded)
+                    self.metrics.observe(label, decoded["cmd"], decoded["type"], decoded.get("fields") or [])
                     if source == "scope":
                         self._publish(payload)
                 except (ValueError, IndexError, struct.error):

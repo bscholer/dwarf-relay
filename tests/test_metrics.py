@@ -40,3 +40,8 @@ def test_stdout_summary_drops_joystick_and_payloads():
 def test_scope_error_reply_reaches_stdout_summary():
     line = summary({"event": "ws", "source": "scope", "cmd": 11005, "type": 3, "fields": [[1, -11513]]})
     assert line == {"event": "scope_error", "command": "capture_start", "code": -11513}
+
+
+def test_mcp_commands_keep_their_source_in_stdout():
+    line = summary({"event": "ws", "source": "mcp", "cmd": 11000, "type": None})
+    assert line == {"event": "command", "source": "mcp", "command": "calibrate"}
