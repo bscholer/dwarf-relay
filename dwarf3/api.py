@@ -56,6 +56,11 @@ class MoveIn(BaseModel):
     seconds: float = Field(gt=0, le=5, description="Duration in seconds, 5 at most.")
 
 
+class PointIn(BaseModel):
+    pitch: float = Field(description="Absolute pitch position, 0 to 175. 172.5 is straight up.")
+    rotation: float | None = Field(None, description="Absolute rotation position, 0 to 360.")
+
+
 class GotoIn(BaseModel):
     name: str
     ra_hours: float
@@ -225,6 +230,13 @@ def prepare() -> Message:
                tags=["Scope"], error_map=CONTROL_ERRORS)
 def move(p: MoveIn) -> Message:
     return Message(message=svc().move(p.angle, p.length, p.seconds))
+
+
+@http_endpoint(path="/api/point", operation_id="pointScope", method="POST", payload_model=PointIn,
+               response_model=Message, description="Move the motors to absolute positions.",
+               tags=["Scope"], error_map=CONTROL_ERRORS)
+def point(p: PointIn) -> Message:
+    return Message(message=svc().point(p.pitch, p.rotation))
 
 
 @mcp_tool(name="close_barrel", title="Close the barrel",

@@ -18,6 +18,10 @@ MAX_FRAMES = 500
 LOCAL_RELAY = "127.0.0.1"
 
 
+MIN_PITCH = 0.0
+MAX_PITCH = 175.0
+
+
 def sun_position(when: dt.datetime) -> tuple[float, float]:
     """Return the Sun RA in hours and Dec in degrees, within about one degree."""
     days = (when - dt.datetime(2000, 1, 1, 12, tzinfo=dt.timezone.utc)).total_seconds() / 86400
@@ -163,6 +167,22 @@ class Service:
             raise ValueError(f"length must be 0 to 1, and seconds must be 0 to {MAX_MOVE_SECONDS:.0f}")
         self._with_scope(lambda s: s.joystick(angle, length, seconds))
         return "moved"
+
+    def point(self, pitch: float, rotation: float | None) -> str:
+        if not MIN_PITCH <= pitch <= MAX_PITCH:
+            raise ValueError(f"pitch must be {MIN_PITCH:.0f} to {MAX_PITCH:.0f}")
+        if rotation is not None and not 0 <= rotation <= 360:
+            raise ValueError("rotation must be 0 to 360")
+        if self.relay.capture_running and not (self.job and self.job["state"] == "running"):
+            raise RuntimeError("the scope is busy with another capture")
+
+        def run(s):
+            s.move(MOTOR_PITCH, pitch)
+            if rotation is not None:
+                s.move(MOTOR_ROTATION, rotation)
+
+        self._with_scope(run)
+        return "pointed"
 
     def close_barrel(self) -> str:
         self._with_scope(lambda s: s.close_barrel())

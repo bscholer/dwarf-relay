@@ -10,5 +10,6 @@ CAPABILITY_OPERATIONS = {
     "darks": ["listDarks", "startDark"],
     "files": ["listSessions", "listFiles", "readFileChunk"],
     "preview": ["getFrame"],
+    "pointing": ["pointScope"],
 }
 BASE_OPERATIONS = ["getCapabilities"]

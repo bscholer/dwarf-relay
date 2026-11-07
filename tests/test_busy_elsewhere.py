@@ -42,3 +42,18 @@ def test_status_flags_a_foreign_capture_but_not_our_own():
     assert _service(relay, own).status()["busy_elsewhere"] is False
     relay.capture_running = False
     assert _service(relay).status()["busy_elsewhere"] is False
+
+
+def test_point_refuses_while_another_capture_runs_and_checks_ranges():
+    import pytest
+
+    relay = SimpleNamespace(app_link=None, capture_running=True)
+    svc = _service(relay)
+    with pytest.raises(RuntimeError, match="busy"):
+        svc.point(90.0, 100.0)
+    relay.capture_running = False
+    with pytest.raises(ValueError):
+        svc.point(200.0, None)
+    with pytest.raises(ValueError):
+        svc.point(90.0, 400.0)
+    assert svc.point(90.0, 100.0) == "pointed"
