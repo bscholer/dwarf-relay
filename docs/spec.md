@@ -17,7 +17,7 @@ The service publishes `/openapi.json` and an MCP endpoint at `/mcp`. Both come f
 | `goto` | `gotoTarget` |
 | `capture` | `startCapture`, `stopCapture` |
 | `darks` | `listDarks`, `startDark` |
-| `files` | `listSessions` |
+| `files` | `listSessions`, `listFiles`, `readFileChunk` |
 
 A service lists a capability only when it implements every operation in its row. `scripts/conformance.py` checks this against a running service.
 
