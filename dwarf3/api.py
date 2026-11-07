@@ -97,6 +97,7 @@ class Job(BaseModel):
     id: str | None = None
     state: str
     frames: int | None = None
+    captured: int | None = Field(None, description="Frames on disk so far.")
     session: str | None = None
     error: str | None = None
 

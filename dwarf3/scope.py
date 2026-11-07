@@ -125,7 +125,7 @@ class Scope:
         self._ok("gain", c.call(MODULE_PARAMS, 16701, field_int(1, PARAM_GAIN) + field_int(2, 1) + field_int(3, gain)))
         self._ok("filter", c.call(MODULE_PARAMS, 16703, field_int(1, PARAM_IR_FILTER) + field_int(2, FILTERS[filter_name])))
 
-    def capture(self, frames: int, filter_name: str, exposure_s: float, cancel=None) -> str:
+    def capture(self, frames: int, filter_name: str, exposure_s: float, cancel=None, progress=None) -> str:
         """Capture frames and stop at the count. Return the session folder.
 
         Capture start resets stackCount to 999, so the frame count comes from the
@@ -152,6 +152,8 @@ class Scope:
                     session = max(new, key=lambda n: n[-23:])
                     count = count_frames(album.names(f"{ALBUM_ROOT}/{session}"))
                     self.log(f"frames: {count}/{frames}")
+                    if progress:
+                        progress(count)
                 if count >= frames:
                     break
             self.stop_capture()

@@ -214,6 +214,18 @@
       },
       "Job": {
         "properties": {
+          "captured": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Frames on disk so far.",
+            "title": "Captured"
+          },
           "error": {
             "anyOf": [
               {

@@ -353,6 +353,19 @@
     "name": "start_capture",
     "outputSchema": {
       "properties": {
+        "captured": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Frames on disk so far.",
+          "title": "Captured"
+        },
         "error": {
           "anyOf": [
             {
@@ -479,6 +492,19 @@
       "$defs": {
         "Job": {
           "properties": {
+            "captured": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Frames on disk so far.",
+              "title": "Captured"
+            },
             "error": {
               "anyOf": [
                 {

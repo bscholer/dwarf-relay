@@ -42,3 +42,26 @@ def test_capture_continues_after_start_error_and_stops_at_frame_count(monkeypatc
 
     assert scope.capture(2, "duo", 15.0) == "DWARF_RAW_TELE_2026-11-05-22-57-32-526"
     assert 11006 in scope.client.sent
+
+
+def test_capture_reports_frame_count_while_running(monkeypatch):
+    class Client(FakeClient):
+        def recv(self):
+            return None
+
+    class Album(FakeAlbum):
+        calls = 0
+
+        def names(self, path):
+            Album.calls += 1
+            if path == scope_module.ALBUM_ROOT:
+                return ["DWARF_RAW_TELE_x_2026-11-06-20-00-00-000"] if Album.calls > 1 else []
+            return ["a.fits", "b.fits"]
+
+    monkeypatch.setattr(scope_module, "Album", Album)
+    monkeypatch.setattr(scope_module.time, "time", iter(range(0, 10_000, 6)).__next__)
+    seen = []
+    scope = Scope("x", client=Client())
+    scope.stop_capture = lambda: None
+    scope.capture(2, "duo", 15, progress=seen.append)
+    assert seen == [2]

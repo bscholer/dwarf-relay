@@ -168,7 +168,7 @@ class Service:
         if not self.lock.acquire(blocking=False):
             raise RuntimeError("another tool call is running")
         self.cancel.clear()
-        self.job = {"id": uuid.uuid4().hex[:8], "state": "running", "frames": frames, "session": None, "error": None}
+        self.job = {"id": uuid.uuid4().hex[:8], "state": "running", "frames": frames, "captured": 0, "session": None, "error": None}
         threading.Thread(target=self._capture, args=(self.job, frames, exposure, gain, filter), daemon=True).start()
         return self.job
 
@@ -177,7 +177,9 @@ class Service:
         try:
             scope = self._scope()
             scope.set_capture(exposure, gain, filter_name)
-            job["session"] = scope.capture(frames, filter_name, float(exposure), self.cancel)
+            job["session"] = scope.capture(
+                frames, filter_name, float(exposure), self.cancel, progress=lambda n: job.update(captured=n)
+            )
             job["state"] = "done"
         except Exception as exc:
             job.update(state="failed", error=str(exc))
