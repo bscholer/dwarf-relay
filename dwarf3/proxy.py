@@ -17,6 +17,7 @@ from pathlib import Path
 
 from . import api
 from .metrics import Metrics, command_name, summary
+from .scope import NOTIFY_CAPTURE, STATE_RUNNING
 from .wire import field_bytes, field_int, parse
 
 CONTROL_PORT = 9900
@@ -153,6 +154,12 @@ class Relay:
         self.app_link: AppLink | None = None
         self.subscribers: list[queue.Queue] = []
         self.metrics = Metrics()
+        self.capture_running = False
+
+    def note_scope_packet(self, cmd: int, fields: list) -> None:
+        """Track whether the scope reports a running capture, whoever started it."""
+        if cmd == NOTIFY_CAPTURE:
+            self.capture_running = dict(fields).get(1) == STATE_RUNNING
 
     def render_metrics(self) -> str:
         link = self.app_link
@@ -207,6 +214,8 @@ class Relay:
         except (ConnectionError, asyncio.CancelledError):
             pass
         finally:
+            if source == "scope" and port == CONTROL_PORT:
+                self.capture_running = False
             if link and self.app_link is link:
                 self.app_link = None
             if api:
@@ -236,6 +245,7 @@ class Relay:
                     self.log.write(event="ws", conn=conn, source=label, **decoded)
                     self.metrics.observe(label, decoded["cmd"], decoded["type"], decoded.get("fields") or [])
                     if source == "scope":
+                        self.note_scope_packet(decoded["cmd"], decoded.get("fields") or [])
                         self._publish(payload)
                 except (ValueError, IndexError, struct.error):
                     self.log.write(event="ws_raw", conn=conn, source=source, hex=payload.hex())

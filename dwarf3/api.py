@@ -114,6 +114,9 @@ class Job(BaseModel):
 
 class StatusOut(BaseModel):
     app_connected: bool
+    busy_elsewhere: bool = Field(
+        False, description="The scope reports a capture that this service did not start."
+    )
     job: Job | None
     rotation: float | None = None
     pitch: float | None = None

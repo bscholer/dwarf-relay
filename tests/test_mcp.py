@@ -25,6 +25,7 @@ def test_goto_guard_handles_ra_wrap_near_the_sun():
 
 class FakeRelay:
     app_link = None
+    capture_running = False
 
     def render_metrics(self):
         return "dwarf3_scope_up 1\n"

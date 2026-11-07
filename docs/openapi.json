@@ -400,6 +400,12 @@
             "title": "App Connected",
             "type": "boolean"
           },
+          "busy_elsewhere": {
+            "default": false,
+            "description": "The scope reports a capture that this service did not start.",
+            "title": "Busy Elsewhere",
+            "type": "boolean"
+          },
           "job": {
             "anyOf": [
               {

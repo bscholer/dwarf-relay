@@ -93,7 +93,12 @@ class Service:
             return {"rotation": s.position(MOTOR_ROTATION), "pitch": s.position(MOTOR_PITCH),
                     "tele_darks": len(s.dark_list()), "wide_darks": len(s.dark_list(wide=True))}
 
-        state = {"app_connected": self.relay.app_link is not None, "job": self.job}
+        own_job = bool(self.job and self.job["state"] == "running")
+        state = {
+            "app_connected": self.relay.app_link is not None,
+            "busy_elsewhere": bool(self.relay.capture_running) and not own_job,
+            "job": self.job,
+        }
         if self.job and self.job["state"] == "running":
             return {**state, **self._positions_while_capturing()}
         return {**state, **self._with_scope(read)}
