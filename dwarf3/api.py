@@ -41,6 +41,15 @@ class CameraIn(BaseModel):
     wide: bool = Field(False, description="true for the wide camera")
 
 
+class FrameIn(BaseModel):
+    camera: str = Field("wide", description="tele or wide")
+
+
+class Frame(BaseModel):
+    camera: str
+    data: str = Field(description="Base64 JPEG of one live frame, 1280 pixels wide.")
+
+
 class MoveIn(BaseModel):
     angle: float = Field(description="Joystick angle in degrees. 0 turns right.")
     length: float = Field(ge=0, le=1, description="Joystick deflection, 0 to 1.")
@@ -177,6 +186,13 @@ def list_files(p: FilesIn) -> FileList:
                tags=["Files"], error_map=CONTROL_ERRORS)
 def read_file_chunk(p: ChunkIn) -> Chunk:
     return Chunk(**svc().read_chunk(p.path, p.offset, p.length))
+
+
+@http_endpoint(path="/api/frame", operation_id="getFrame", method="GET", payload_model=FrameIn,
+               response_model=Frame, description="Grab one live frame from a camera.", tags=["Preview"],
+               error_map=CONTROL_ERRORS)
+def get_frame(p: FrameIn) -> Frame:
+    return Frame(**svc().frame(p.camera))
 
 
 @mcp_tool(name="list_darks", title="List master darks",

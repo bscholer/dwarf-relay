@@ -6,6 +6,7 @@ import os
 import threading
 import uuid
 
+from . import frame
 from .client import Client
 from .files import Album
 from .spec import CAPABILITY_OPERATIONS, SPEC_VERSION
@@ -133,6 +134,10 @@ class Service:
         finally:
             album.close()
         return {"offset": offset, "size": size, "data": base64.b64encode(data).decode(), "eof": offset + len(data) >= size}
+
+    def frame(self, camera: str) -> dict:
+        data = frame.grab(self.scope_host, camera)
+        return {"camera": camera, "data": base64.b64encode(data).decode()}
 
     def list_darks(self, wide: bool = False) -> list[dict]:
         return self._with_scope(lambda s: s.dark_list(wide=wide))

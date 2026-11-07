@@ -9,5 +9,6 @@ CAPABILITY_OPERATIONS = {
     "capture": ["startCapture", "stopCapture"],
     "darks": ["listDarks", "startDark"],
     "files": ["listSessions", "listFiles", "readFileChunk"],
+    "preview": ["getFrame"],
 }
 BASE_OPERATIONS = ["getCapabilities"]
