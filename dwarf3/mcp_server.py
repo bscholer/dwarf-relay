@@ -1,4 +1,5 @@
 """Scope control operations. They use the relay connection path."""
+import base64
 import datetime as dt
 import math
 import os
@@ -25,6 +26,14 @@ def sun_position(when: dt.datetime) -> tuple[float, float]:
     tilt = math.radians(23.439)
     ra = math.atan2(math.cos(tilt) * math.sin(ecliptic), math.cos(ecliptic))
     return (math.degrees(ra) / 15) % 24, math.degrees(math.asin(math.sin(tilt) * math.sin(ecliptic)))
+
+
+def album_path(path: str) -> str:
+    """Map a path under the album to its full scope path. Refuse any path outside the album."""
+    parts = [p for p in path.split("/") if p]
+    if ".." in parts or "." in parts:
+        raise ValueError("path must stay inside the album")
+    return "/".join([ALBUM_ROOT, *parts])
 
 
 def separation_deg(ra1: float, dec1: float, ra2: float, dec2: float) -> float:
@@ -94,6 +103,25 @@ class Service:
             return sorted(n for n in album.names(ALBUM_ROOT) if n.startswith("DWARF_RAW_"))
         finally:
             album.close()
+
+    def list_files(self, path: str = "") -> list[dict]:
+        album = Album(self.scope_host)
+        try:
+            return album.entries(album_path(path))
+        finally:
+            album.close()
+
+    def read_chunk(self, path: str, offset: int, length: int) -> dict:
+        full = album_path(path)
+        album = Album(self.scope_host)
+        try:
+            size = next((e["size"] for e in album.entries(full.rsplit("/", 1)[0]) if e["name"] == full.rsplit("/", 1)[1]), None)
+            if size is None:
+                raise ValueError(f"no such file: {path}")
+            data = album.read(full, offset, length)
+        finally:
+            album.close()
+        return {"offset": offset, "size": size, "data": base64.b64encode(data).decode(), "eof": offset + len(data) >= size}
 
     def list_darks(self, wide: bool = False) -> list[dict]:
         return self._with_scope(lambda s: s.dark_list(wide=wide))

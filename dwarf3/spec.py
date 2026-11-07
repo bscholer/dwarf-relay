@@ -7,6 +7,6 @@ CAPABILITY_OPERATIONS = {
     "goto": ["gotoTarget"],
     "capture": ["startCapture", "stopCapture"],
     "darks": ["listDarks", "startDark"],
-    "files": ["listSessions"],
+    "files": ["listSessions", "listFiles", "readFileChunk"],
 }
 BASE_OPERATIONS = ["getCapabilities"]

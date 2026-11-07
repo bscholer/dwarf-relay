@@ -41,6 +41,28 @@ class Album:
                 copied += 1
         return copied
 
+    def entries(self, path: str) -> list[dict]:
+        return [{"name": n, "size": f["size"], "dir": f["dir"]} for n, f in self._entries(path)]
+
+    def read(self, path: str, offset: int, length: int) -> bytes:
+        """Read length bytes from offset. Return fewer bytes at the end of the file."""
+        data = bytearray()
+        self.ftp.voidcmd("TYPE I")
+        conn = self.ftp.transfercmd(f"RETR {path}", rest=offset)
+        try:
+            while len(data) < length:
+                block = conn.recv(min(65536, length - len(data)))
+                if not block:
+                    break
+                data.extend(block)
+        finally:
+            conn.close()
+            try:
+                self.ftp.voidresp()
+            except ftplib.Error:
+                pass
+        return bytes(data)
+
     def _entries(self, path: str):
         lines: list[str] = []
         self.ftp.dir(path, lines.append)

@@ -66,6 +66,33 @@ class DarkIn(BaseModel):
     wide: bool = Field(False, description="true for the wide camera")
 
 
+class FilesIn(BaseModel):
+    path: str = Field("", description="Folder under the album. Empty means the album root.")
+
+
+class FileEntry(BaseModel):
+    name: str
+    size: int
+    dir: bool
+
+
+class FileList(BaseModel):
+    entries: list[FileEntry]
+
+
+class ChunkIn(BaseModel):
+    path: str = Field(description="File under the album.")
+    offset: int = Field(0, ge=0)
+    length: int = Field(1048576, gt=0, le=4194304, description="Bytes to read, 4 MiB at most.")
+
+
+class Chunk(BaseModel):
+    offset: int
+    size: int = Field(description="Total file size in bytes.")
+    data: str = Field(description="Base64 bytes starting at offset.")
+    eof: bool
+
+
 class Job(BaseModel):
     id: str | None = None
     state: str
@@ -134,6 +161,20 @@ def status() -> StatusOut:
                error_map=CONTROL_ERRORS)
 def list_sessions() -> SessionList:
     return SessionList(sessions=svc().list_sessions())
+
+
+@http_endpoint(path="/api/files", operation_id="listFiles", method="GET", payload_model=FilesIn,
+               response_model=FileList, description="List one folder of the scope album.", tags=["Files"],
+               error_map=CONTROL_ERRORS)
+def list_files(p: FilesIn) -> FileList:
+    return FileList(entries=svc().list_files(p.path))
+
+
+@http_endpoint(path="/api/files/chunk", operation_id="readFileChunk", method="GET", payload_model=ChunkIn,
+               response_model=Chunk, description="Read a byte range of one album file. Resume at any offset.",
+               tags=["Files"], error_map=CONTROL_ERRORS)
+def read_file_chunk(p: ChunkIn) -> Chunk:
+    return Chunk(**svc().read_chunk(p.path, p.offset, p.length))
 
 
 @mcp_tool(name="list_darks", title="List master darks",
