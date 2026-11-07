@@ -14,6 +14,7 @@ from .scope import ALBUM_ROOT, EXPOSURE_INDEX, FILTERS, MOTOR_PITCH, MOTOR_ROTAT
 
 MIN_SUN_SEPARATION_DEG = 30.0
 MAX_MOVE_SECONDS = 5.0
+LOCK_WAIT_S = 30.0
 MAX_FRAMES = 500
 LOCAL_RELAY = "127.0.0.1"
 
@@ -77,7 +78,7 @@ class Service:
     def _with_scope(self, fn):
         if self.job and self.job["state"] == "running":
             raise RuntimeError("a capture job is running, call stop_job first")
-        if not self.lock.acquire(blocking=False):
+        if not self.lock.acquire(timeout=LOCK_WAIT_S):
             raise RuntimeError("another tool call is running")
         scope = None
         try:

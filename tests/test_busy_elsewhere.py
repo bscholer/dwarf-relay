@@ -57,3 +57,16 @@ def test_point_refuses_while_another_capture_runs_and_checks_ranges():
     with pytest.raises(ValueError):
         svc.point(90.0, 400.0)
     assert svc.point(90.0, 100.0) == "pointed"
+
+
+def test_a_call_waits_for_a_short_status_read_instead_of_failing():
+    import threading
+    import time
+
+    service = Service(_relay(), "127.0.0.1", loop=None)
+    service._scope = lambda: SimpleNamespace(close=lambda: None)
+    service.lock.acquire()
+    threading.Timer(0.2, service.lock.release).start()
+    start = time.monotonic()
+    assert service._with_scope(lambda _scope: "ok") == "ok"
+    assert time.monotonic() - start >= 0.2
