@@ -2,7 +2,7 @@
 import time
 
 from .client import Client
-from .files import Album, count_frames, raw_sessions
+from .files import Album, count_failed, count_frames, raw_sessions
 from .wire import field_bytes, field_double, field_int, parse
 
 MODULE_ASTRO, MODULE_SYSTEM, MODULE_MOTOR, MODULE_FOCUS = 3, 4, 6, 8
@@ -156,10 +156,11 @@ class Scope:
                 new = raw_sessions(album.names(ALBUM_ROOT)) - before
                 if new:
                     session = max(new, key=lambda n: n[-23:])
-                    count = count_frames(album.names(f"{ALBUM_ROOT}/{session}"))
+                    names = album.names(f"{ALBUM_ROOT}/{session}")
+                    count = count_frames(names)
                     self.log(f"frames: {count}/{frames}")
                     if progress:
-                        progress(count)
+                        progress(count, count_failed(names))
                 if count >= frames:
                     break
             self.stop_capture()

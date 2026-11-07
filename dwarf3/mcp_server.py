@@ -94,8 +94,19 @@ class Service:
 
         state = {"app_connected": self.relay.app_link is not None, "job": self.job}
         if self.job and self.job["state"] == "running":
-            return state
+            return {**state, **self._positions_while_capturing()}
         return {**state, **self._with_scope(read)}
+
+    def _positions_while_capturing(self) -> dict:
+        """Read the motors over a second local connection. The capture keeps its own link."""
+        try:
+            scope = Scope(self.scope_host, log=lambda *_: None, client=Client(LOCAL_RELAY))
+            try:
+                return {"rotation": scope.position(MOTOR_ROTATION), "pitch": scope.position(MOTOR_PITCH)}
+            finally:
+                scope.close()
+        except Exception:
+            return {}
 
     def list_sessions(self) -> list[str]:
         album = Album(self.scope_host)
@@ -168,7 +179,7 @@ class Service:
         if not self.lock.acquire(blocking=False):
             raise RuntimeError("another tool call is running")
         self.cancel.clear()
-        self.job = {"id": uuid.uuid4().hex[:8], "state": "running", "frames": frames, "captured": 0, "session": None, "error": None}
+        self.job = {"id": uuid.uuid4().hex[:8], "state": "running", "frames": frames, "captured": 0, "failed": 0, "session": None, "error": None}
         threading.Thread(target=self._capture, args=(self.job, frames, exposure, gain, filter), daemon=True).start()
         return self.job
 
@@ -178,7 +189,7 @@ class Service:
             scope = self._scope()
             scope.set_capture(exposure, gain, filter_name)
             job["session"] = scope.capture(
-                frames, filter_name, float(exposure), self.cancel, progress=lambda n: job.update(captured=n)
+                frames, filter_name, float(exposure), self.cancel, progress=lambda n, bad: job.update(captured=n, failed=bad)
             )
             job["state"] = "done"
         except Exception as exc:

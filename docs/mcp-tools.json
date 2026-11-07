@@ -378,6 +378,19 @@
           "default": null,
           "title": "Error"
         },
+        "failed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Frames the scope tagged failed. They count in captured.",
+          "title": "Failed"
+        },
         "frames": {
           "anyOf": [
             {
@@ -516,6 +529,19 @@
               ],
               "default": null,
               "title": "Error"
+            },
+            "failed": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Frames the scope tagged failed. They count in captured.",
+              "title": "Failed"
             },
             "frames": {
               "anyOf": [

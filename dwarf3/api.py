@@ -98,6 +98,7 @@ class Job(BaseModel):
     state: str
     frames: int | None = None
     captured: int | None = Field(None, description="Frames on disk so far.")
+    failed: int | None = Field(None, description="Frames the scope tagged failed. They count in captured.")
     session: str | None = None
     error: str | None = None
 

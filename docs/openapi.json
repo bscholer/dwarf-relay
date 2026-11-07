@@ -237,6 +237,18 @@
             ],
             "title": "Error"
           },
+          "failed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Frames the scope tagged failed. They count in captured.",
+            "title": "Failed"
+          },
           "frames": {
             "anyOf": [
               {

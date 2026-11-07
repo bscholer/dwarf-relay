@@ -12,6 +12,11 @@ def count_frames(names: list[str]) -> int:
     return sum(1 for n in names if n.endswith(".fits") and not NON_FRAME.match(n))
 
 
+def count_failed(names: list[str]) -> int:
+    """Count frames the scope tagged failed. They stay in the session folder."""
+    return sum(1 for n in names if n.startswith("failed_") and n.endswith(".fits"))
+
+
 def raw_sessions(names: list[str]) -> set[str]:
     return {n for n in names if RAW_SESSION.match(n)}
 

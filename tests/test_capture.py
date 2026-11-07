@@ -56,12 +56,12 @@ def test_capture_reports_frame_count_while_running(monkeypatch):
             Album.calls += 1
             if path == scope_module.ALBUM_ROOT:
                 return ["DWARF_RAW_TELE_x_2026-11-06-20-00-00-000"] if Album.calls > 1 else []
-            return ["a.fits", "b.fits"]
+            return ["a.fits", "failed_b.fits", "stacked-1.fits", "shotsInfo.json"]
 
     monkeypatch.setattr(scope_module, "Album", Album)
     monkeypatch.setattr(scope_module.time, "time", iter(range(0, 10_000, 6)).__next__)
     seen = []
     scope = Scope("x", client=Client())
     scope.stop_capture = lambda: None
-    scope.capture(2, "duo", 15, progress=seen.append)
-    assert seen == [2]
+    scope.capture(2, "duo", 15, progress=lambda n, bad: seen.append((n, bad)))
+    assert seen == [(2, 1)]
