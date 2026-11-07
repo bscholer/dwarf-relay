@@ -14,6 +14,7 @@ PITCH_CLOSED = 0.0
 PITCH_ZENITH = 172.5  # Set by eye on a tripod. The polar value 169 is about 3 degrees short.
 ROTATION_CENTER = 158.0
 ROTATION_LOCKED = -14511  # The firmware refuses a rotation reset in EQ mode.
+MODE_REFUSED = -16602  # The firmware refuses a shooting mode change in some states.
 
 PARAM_EXPOSURE = 0x0201000000000001
 PARAM_GAIN = 0x0201000000000002
@@ -66,7 +67,11 @@ class Scope:
         self._ok("set timezone", c.call(MODULE_SYSTEM, 13001, field_bytes(1, timezone.encode())))
         self._ok("set location", c.call(MODULE_SYSTEM, 13010, field_double(1, lat) + field_double(2, lon)))
         c.call(MODULE_ASTRO, 11010)
-        self._ok("astro mode", c.call(MODULE_DEVICE_CONFIG, 16402, field_int(1, 2)))
+        mode = c.call(MODULE_DEVICE_CONFIG, 16402, field_int(1, 2))
+        if reply_code(mode) == MODE_REFUSED:
+            self.log("astro mode: refused, keeping the current mode")
+        else:
+            self._ok("astro mode", mode)
         self._ok("enter camera", c.call(MODULE_DEVICE_CONFIG, 16404, field_bytes(3, field_int(1, 1))))
         self._ok("deep sky tech", c.call(MODULE_DEVICE_CONFIG, 16403, field_int(1, 2)))
 

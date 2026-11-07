@@ -47,3 +47,20 @@ def test_prepare_skips_rotation_motor_when_the_firmware_locks_it():
     scope.home()
     scope.point_up()
     assert MOTOR_ROTATION not in client.moved
+
+
+def test_prepare_continues_when_the_firmware_refuses_the_shooting_mode():
+    class Client:
+        def __init__(self):
+            self.cmds = []
+
+        def send(self, module, cmd, data=b""):
+            pass
+
+        def call(self, module, cmd, data=b"", timeout=None):
+            self.cmds.append(cmd)
+            return [(1, -16602)] if cmd == 16402 else [(1, 0)]
+
+    client = Client()
+    Scope("x", log=lambda *_: None, client=client).prepare(37.0, -122.0, -8.0, "America/Los_Angeles")
+    assert 16403 in client.cmds
