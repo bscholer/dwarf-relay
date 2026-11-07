@@ -13,6 +13,7 @@ JOYSTICK, JOYSTICK_STOP = 14006, 14008
 PITCH_CLOSED = 0.0
 PITCH_ZENITH = 172.5  # Set by eye on a tripod. The polar value 169 is about 3 degrees short.
 ROTATION_CENTER = 158.0
+ROTATION_LOCKED = -14511  # The firmware refuses a rotation reset in EQ mode.
 
 PARAM_EXPOSURE = 0x0201000000000001
 PARAM_GAIN = 0x0201000000000002
@@ -43,6 +44,7 @@ class Scope:
         self.host = host
         self.log = log
         self.client = client or Client(host)
+        self.rotation_locked = False
 
     def _ok(self, name: str, fields, code_field: int = 1) -> None:
         code = reply_code(fields, code_field)
@@ -78,11 +80,15 @@ class Scope:
         self._ok(f"move motor {motor} to {position}", self.client.call(MODULE_MOTOR, 14001, data, timeout=60), 2)
 
     def home(self) -> None:
-        self._ok("reset rotation", self.client.call(MODULE_MOTOR, 14003, field_int(1, MOTOR_ROTATION), timeout=120), 2)
+        fields = self.client.call(MODULE_MOTOR, 14003, field_int(1, MOTOR_ROTATION), timeout=120)
+        self.rotation_locked = reply_code(fields, 2) == ROTATION_LOCKED
+        if not self.rotation_locked:
+            self._ok("reset rotation", fields, 2)
         self._ok("reset pitch", self.client.call(MODULE_MOTOR, 14003, field_int(1, MOTOR_PITCH) + field_int(2, 1), timeout=120), 2)
 
     def point_up(self) -> None:
-        self.move(MOTOR_ROTATION, ROTATION_CENTER)
+        if not self.rotation_locked:
+            self.move(MOTOR_ROTATION, ROTATION_CENTER)
         self.move(MOTOR_PITCH, PITCH_ZENITH)
 
     def close_barrel(self) -> None:

@@ -23,3 +23,27 @@ def test_goto_fails_at_once_when_the_scope_refuses():
 def test_goto_returns_when_tracking_starts():
     scope = Scope("x", client=FakeClient([(11002, 3, [(1, 0)]), (NOTIFY_TRACKING, 2, [(1, 1)])]))
     scope.goto("M33", 1.56, 30.6, timeout=5)
+
+
+def test_prepare_skips_rotation_motor_when_the_firmware_locks_it():
+    from dwarf3.scope import MOTOR_ROTATION
+
+    class Client:
+        def __init__(self):
+            self.moved = []
+
+        def send(self, module, cmd, data=b""):
+            pass
+
+        def call(self, module, cmd, data=b"", timeout=None):
+            if cmd == 14003 and data.startswith(b"\x08\x01"):
+                return [(2, -14511)]
+            if cmd == 14001:
+                self.moved.append(data[1])
+            return [(1, 0), (2, 0)]
+
+    client = Client()
+    scope = Scope("x", client=client)
+    scope.home()
+    scope.point_up()
+    assert MOTOR_ROTATION not in client.moved
