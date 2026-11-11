@@ -121,7 +121,7 @@ class Scope:
     def autofocus(self) -> None:
         self._ok("autofocus", self.client.call(MODULE_FOCUS, 15004, timeout=120))
 
-    def calibrate(self, timeout: float = 300) -> None:
+    def calibrate(self, timeout: float = 420) -> None:
         self.client.send(MODULE_ASTRO, 11000)
         end = time.time() + timeout
         while time.time() < end:
