@@ -40,6 +40,8 @@ def test_prepare_skips_rotation_motor_when_the_firmware_locks_it():
                 return [(2, -14511)]
             if cmd == 14001:
                 self.moved.append(data[1])
+            if cmd == 14011:
+                return [(1, 2), (3, 172.5)]
             return [(1, 0), (2, 0)]
 
     client = Client()
@@ -64,3 +66,27 @@ def test_prepare_continues_when_the_firmware_refuses_the_shooting_mode():
     client = Client()
     Scope("x", log=lambda *_: None, client=client).prepare(37.0, -122.0, -8.0, "America/Los_Angeles")
     assert 16403 in client.cmds
+
+
+def test_point_up_fails_when_the_pitch_motor_did_not_reach_the_sky():
+    class Client:
+        def send(self, module, cmd, data=b""):
+            pass
+
+        def call(self, module, cmd, data=b"", timeout=None):
+            return [(1, 2), (3, 120.0)] if cmd == 14011 else [(1, 0), (2, 0)]
+
+    scope = Scope("x", log=lambda *_: None, client=Client())
+    scope.rotation_locked = True
+    with pytest.raises(ScopeError, match="not pointing at the sky: pitch 120.0"):
+        scope.point_up()
+
+
+def test_failed_calibration_reports_the_code_and_where_the_scope_points():
+    class Client(FakeClient):
+        def call(self, module, cmd, data=b"", timeout=None):
+            return [(1, 2), (3, 153.4)]
+
+    scope = Scope("x", client=Client([(11000, 3, [(1, -11504)])]))
+    with pytest.raises(ScopeError, match="code -11504, pitch 153.4"):
+        scope.calibrate(timeout=5)

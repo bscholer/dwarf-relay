@@ -12,6 +12,7 @@ MOTOR_ROTATION, MOTOR_PITCH = 1, 2
 JOYSTICK, JOYSTICK_STOP = 14006, 14008
 PITCH_CLOSED = 0.0
 PITCH_ZENITH = 172.5  # Set by eye on a tripod. The polar value 169 is about 3 degrees short.
+PITCH_TOLERANCE = 8.0  # A pitch further from zenith than this after point_up means the scope did not get there.
 ROTATION_CENTER = 158.0
 ROTATION_LOCKED = -14511  # The firmware refuses a rotation reset in EQ mode.
 MODE_REFUSED = -16602  # The firmware refuses a shooting mode change in some states.
@@ -111,6 +112,9 @@ class Scope:
         if not self.rotation_locked:
             self.move(MOTOR_ROTATION, ROTATION_CENTER)
         self.move(MOTOR_PITCH, PITCH_ZENITH)
+        pitch = self.position(MOTOR_PITCH)
+        if pitch is None or abs(pitch - PITCH_ZENITH) > PITCH_TOLERANCE:
+            raise ScopeError(f"scope is not pointing at the sky: pitch {pitch}, expected {PITCH_ZENITH}")
 
     def close_barrel(self) -> None:
         # The firmware returns pitch to about 12.5 after it reaches 0. The official app does the same.
@@ -128,9 +132,12 @@ class Scope:
         while time.time() < end:
             packet = self.client.recv()
             if packet and packet[0] == 11000 and packet[1] != 0:
-                self._ok("calibration", packet[2])
+                code = reply_code(packet[2])
+                if code != 0:
+                    raise ScopeError(f"calibration failed, code {code}, pitch {self.position(MOTOR_PITCH)}")
+                self.log("calibration: ok")
                 return
-        raise ScopeError("calibration timed out")
+        raise ScopeError(f"calibration timed out, pitch {self.position(MOTOR_PITCH)}")
 
     def goto(self, name: str, ra_hours: float, dec_deg: float, timeout: float = 240) -> None:
         self.client.send(MODULE_ASTRO, 11002, field_double(1, ra_hours) + field_double(2, dec_deg) + field_bytes(3, name.encode()))
