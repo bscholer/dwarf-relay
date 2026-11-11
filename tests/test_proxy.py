@@ -4,7 +4,7 @@ import struct
 
 import pytest
 
-from dwarf3.proxy import AppLink, Log, Relay, WsStream, decode_packet, redact, rename
+from dwarf3.proxy import AppLink, Log, Relay, WsStream, decode_packet, http_requests, redact, rename
 from dwarf3.wire import field_bytes, field_int, parse
 
 HANDSHAKE = b"GET /?client_id=x HTTP/1.1\r\nUpgrade: websocket\r\n\r\n"
@@ -142,3 +142,15 @@ def test_inject_fails_with_no_app_connection(tmp_path):
 def test_rename_keeps_protobuf_length_prefix_valid():
     reply = field_bytes(8, b"DWARF3_57D0EC") + field_int(9, 1)
     assert parse(rename(reply)) == [(8, b"DWARF3_RELAY1"), (9, 1)]
+
+
+def test_http_requests_finds_pipelined_requests_and_keeps_a_body_only_for_writes():
+    chunk = (
+        b"GET /thumb/a.jpg HTTP/1.1\r\nHost: x\r\n\r\n"
+        b'POST /album/delete HTTP/1.1\r\nHost: x\r\nContent-Length: 20\r\n\r\n{"path":"/Astronomy/s"}'
+    )
+    assert http_requests(chunk) == [
+        {"method": "GET", "path": "/thumb/a.jpg"},
+        {"method": "POST", "path": "/album/delete", "body": '{"path":"/Astronomy/s"}'},
+    ]
+    assert http_requests(b"\x81\x05binary") == []
