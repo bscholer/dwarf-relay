@@ -30,6 +30,7 @@ NOTIFY_CALIBRATION = 15210
 NOTIFY_CAPTURE = 15208
 NOTIFY_TRACKING = 15212
 ALBUM_ROOT = "/Astronomy"
+END_GRACE_S = 10  # A stop notice this soon after the start belongs to the start, not the end.
 START_GRACE_S = 30  # A start the scope refuses must show a session folder within this time.
 RECONNECTS = 3
 
@@ -171,12 +172,18 @@ class Scope:
             session = None
             count = 0
             start_code = 0
+            saw_running = False
+            ended = False
             next_poll = time.time() + 5
             while time.time() < end and not (cancel and cancel.is_set()):
                 packet = self._recv()
                 if packet and packet[0] == 11005 and packet[1] != 0:
                     start_code = reply_code(packet[2]) or 0
                     self.log(f"capture start reply: code {start_code}")
+                if packet and packet[0] == NOTIFY_CAPTURE:
+                    running = dict(packet[2]).get(1, 0) == STATE_RUNNING
+                    saw_running = saw_running or running
+                    ended = saw_running and not running and time.time() - begun > END_GRACE_S
                 if time.time() < next_poll:
                     continue
                 next_poll = time.time() + 5
@@ -190,7 +197,9 @@ class Scope:
                         progress(count, count_failed(names))
                 elif start_code and time.time() - begun > START_GRACE_S:
                     raise ScopeError(f"capture start refused, code {start_code}")
-                if count >= frames:
+                if count >= frames or ended:
+                    if ended and count < frames:
+                        self.log(f"the scope ended the capture at {count}/{frames} frames")
                     break
             started = False
             self.stop_capture()

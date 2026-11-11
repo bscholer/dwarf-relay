@@ -7,9 +7,12 @@ RAW_SESSION = re.compile(r"^DWARF_RAW_")
 NON_FRAME = re.compile(r"^(stacked|dark_)")
 
 
+FRAME_EXTENSIONS = (".fits", ".tif", ".tiff")
+
+
 def count_frames(names: list[str]) -> int:
     """Count raw frames in a session folder. Rejected frames also count as shots."""
-    return sum(1 for n in names if n.endswith(".fits") and not NON_FRAME.match(n))
+    return sum(1 for n in names if n.lower().endswith(FRAME_EXTENSIONS) and not NON_FRAME.match(n))
 
 
 def count_failed(names: list[str]) -> int:

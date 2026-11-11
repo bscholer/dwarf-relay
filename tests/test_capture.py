@@ -141,3 +141,32 @@ def test_capture_that_loses_the_link_for_good_still_tries_to_stop_the_scope(monk
     with pytest.raises(ConnectionLost):
         scope.capture(2, "duo", 15.0)
     assert scope.client.sent.count(11006) >= 1
+
+
+def test_capture_returns_when_the_scope_ends_it_before_the_frame_count(monkeypatch):
+    class Client(FakeClient):
+        reads = 0
+
+        def recv(self):
+            self.reads += 1
+            if self.sent == [11005]:
+                self.sent.append("running")
+                return 15208, 2, [(1, 1)]
+            if self.sent == [11005, "running"]:
+                self.sent.append("ended")
+                return 15208, 2, [(1, 3)]
+            return None
+
+    class Album(FakeAlbum):
+        def names(self, path):
+            if path != scope_module.ALBUM_ROOT:
+                return ["a.tif", "stacked-1.fits"]
+            self.polls += 1
+            return ["DWARF_RAW_TELE_x_2026-11-11-01-03-07-760"] if self.polls > 1 else []
+
+    scope = _scope_with(Client(), monkeypatch, Album)
+    scope.stop_capture = lambda: None
+    progress = []
+    scope.capture(200, "duo", 15.0, progress=lambda n, bad: progress.append(n))
+    assert progress and progress[-1] == 1
+    assert scope.client.reads < 100
