@@ -22,7 +22,7 @@ from .wire import field_bytes, field_int, parse
 
 CONTROL_PORT = 9900
 API_PORT = 8082
-HTTP_PORT = 80
+HTTP_PORTS = (80, API_PORT, 8085, 8092)
 TCP_PORTS = (80, 554, CONTROL_PORT, API_PORT, 8085, 8092)
 INJECT_PORT = 9901
 RELAY_NAME = b"DWARF3_RELAY1"  # Same length as the scope name, so Content-Length and protobuf sizes stay valid.
@@ -222,9 +222,9 @@ class Relay:
                 # Decode before the write, so ws.buf shows a partial frame at each await.
                 if ws is not None:
                     self._log_ws(conn, source, ws, chunk, link)
-                if port == HTTP_PORT and source == "app":
+                if port in HTTP_PORTS and source == "app":
                     for request in http_requests(chunk):
-                        self.log.write(event="http_request", conn=conn, **request)
+                        self.log.write(event="http_request", conn=conn, port=port, **request)
                 if api is not None and len(api) < MAX_API_CAPTURE:
                     api += chunk
                 self.metrics.add("relay_bytes_total", len(chunk), port=port, source=source)
