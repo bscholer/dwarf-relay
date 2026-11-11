@@ -108,3 +108,14 @@ def test_stop_job_stops_a_capture_that_no_job_owns():
     assert "no job owned" in svc.stop_job()
     assert stopped and relay.capture_running is False
     assert svc.stop_job() == "nothing to stop"
+
+
+def test_start_capture_waits_for_a_short_status_read_instead_of_failing():
+    import threading
+
+    service = Service(_relay(), "127.0.0.1", loop=None)
+    service._capture = lambda job, *args: service.lock.release()
+    service.lock.acquire()
+    threading.Timer(0.2, service.lock.release).start()
+    job = service.start_capture(2)
+    assert job["state"] == "running"

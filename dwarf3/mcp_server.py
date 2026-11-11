@@ -211,7 +211,7 @@ class Service:
             raise ValueError(f"frames must be 1 to {MAX_FRAMES}, exposure one of {sorted(EXPOSURE_INDEX)}, filter one of {sorted(FILTERS)}")
         if self.job and self.job["state"] == "running":
             raise RuntimeError("a capture job is already running")
-        if not self.lock.acquire(blocking=False):
+        if not self.lock.acquire(timeout=LOCK_WAIT_S):
             raise RuntimeError("another tool call is running")
         self.cancel.clear()
         self.job = {"id": uuid.uuid4().hex[:8], "state": "running", "frames": frames, "captured": 0, "failed": 0, "session": None, "error": None}
