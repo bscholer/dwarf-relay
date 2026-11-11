@@ -127,6 +127,7 @@ class StatusOut(BaseModel):
     pitch: float | None = None
     tele_darks: int | None = None
     wide_darks: int | None = None
+    sd_free_gb: float | None = Field(None, description="Free space on the scope SD card, when known.")
 
 
 class SessionList(BaseModel):

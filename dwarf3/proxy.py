@@ -31,6 +31,8 @@ INJECT_WAIT_S = 1.0
 MAX_API_CAPTURE = 1 << 20
 REQUEST_LINE = re.compile(rb"^(GET|POST|PUT|DELETE|PATCH|HEAD) (\S+) HTTP/1\.[01]\r\n", re.MULTILINE)
 MAX_BODY_LOG = 300
+CAPTURE_ACTIVITY_S = 30.0
+CAPTURE_PROGRESS_CMDS = (15209, 15288)
 SECRET = re.compile(rb'("[A-Za-z_]*(?:pwd|password|psd)[A-Za-z_]*"\s*:\s*")[^"]*"', re.IGNORECASE)
 OPCODE_BINARY, OPCODE_CLOSE = 2, 8
 
@@ -171,12 +173,29 @@ class Relay:
         self.app_link: AppLink | None = None
         self.subscribers: list[queue.Queue] = []
         self.metrics = Metrics()
-        self.capture_running = False
+        self._capture_flag = False
+        self._capture_seen = float("-inf")
+        self.clock = time.monotonic
+
+    @property
+    def capture_running(self) -> bool:
+        """True while the scope reports a capture, or sent capture progress in the last 30 s.
+
+        The progress rule covers a capture that began before this relay connected."""
+        return self._capture_flag or self.clock() - self._capture_seen < CAPTURE_ACTIVITY_S
+
+    @capture_running.setter
+    def capture_running(self, value: bool) -> None:
+        self._capture_flag = value
+        if not value:
+            self._capture_seen = float("-inf")
 
     def note_scope_packet(self, cmd: int, fields: list) -> None:
         """Track whether the scope reports a running capture, whoever started it."""
         if cmd == NOTIFY_CAPTURE:
             self.capture_running = dict(fields).get(1) == STATE_RUNNING
+        elif cmd in CAPTURE_PROGRESS_CMDS:
+            self._capture_seen = self.clock()
 
     def render_metrics(self) -> str:
         link = self.app_link

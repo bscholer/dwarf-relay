@@ -65,3 +65,79 @@ def test_capture_reports_frame_count_while_running(monkeypatch):
     scope.stop_capture = lambda: None
     scope.capture(2, "duo", 15, progress=lambda n, bad: seen.append((n, bad)))
     assert seen == [(2, 1)]
+
+
+def _scope_with(client, monkeypatch, album):
+    monkeypatch.setattr(scope_module, "Album", album)
+    clock = iter(range(0, 100000, 3))
+    monkeypatch.setattr(scope_module.time, "time", lambda: next(clock))
+    monkeypatch.setattr(scope_module.time, "sleep", lambda _s: None)
+    return Scope("scope", log=lambda *_: None, client=client)
+
+
+def test_refused_start_with_no_session_fails_with_the_code_and_stops_the_scope(monkeypatch):
+    import pytest
+
+    class Client:
+        sent = []
+
+        def send(self, module, cmd, data=b""):
+            self.sent.append(cmd)
+
+        def recv(self):
+            if self.sent == [11005]:
+                self.sent.append("reply")
+                return 11005, 3, [(1, -6)]
+            return (15208, 2, [(1, 3)]) if 11006 in self.sent else None
+
+    class EmptyAlbum(FakeAlbum):
+        def names(self, path):
+            return []
+
+    scope = _scope_with(Client(), monkeypatch, EmptyAlbum)
+    with pytest.raises(scope_module.ScopeError, match="refused, code -6"):
+        scope.capture(4, "duo", 15.0)
+    assert 11006 in scope.client.sent
+
+
+def test_capture_reconnects_after_the_scope_drops_the_link(monkeypatch):
+    from dwarf3.client import ConnectionLost
+
+    class Dropping:
+        sent = []
+
+        def send(self, module, cmd, data=b""):
+            self.sent.append(cmd)
+
+        def recv(self):
+            raise ConnectionLost("scope closed the connection")
+
+    class Fresh(FakeClient):
+        def recv(self):
+            return (15208, 2, [(1, 3)]) if 11006 in self.sent else None
+
+    fresh = Fresh()
+    scope = _scope_with(Dropping(), monkeypatch, FakeAlbum)
+    scope.reconnect = lambda: fresh
+    assert scope.capture(2, "duo", 15.0) == "DWARF_RAW_TELE_2026-11-05-22-57-32-526"
+    assert 11006 in fresh.sent
+
+
+def test_capture_that_loses_the_link_for_good_still_tries_to_stop_the_scope(monkeypatch):
+    import pytest
+
+    from dwarf3.client import ConnectionLost
+
+    class Dead:
+        sent = []
+
+        def send(self, module, cmd, data=b""):
+            self.sent.append(cmd)
+
+        def recv(self):
+            raise ConnectionLost("scope closed the connection")
+
+    scope = _scope_with(Dead(), monkeypatch, FakeAlbum)
+    with pytest.raises(ConnectionLost):
+        scope.capture(2, "duo", 15.0)
+    assert scope.client.sent.count(11006) >= 1

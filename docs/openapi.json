@@ -464,6 +464,18 @@
             ],
             "title": "Rotation"
           },
+          "sd_free_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Free space on the scope SD card, when known.",
+            "title": "Sd Free Gb"
+          },
           "tele_darks": {
             "anyOf": [
               {

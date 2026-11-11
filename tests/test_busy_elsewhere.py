@@ -31,7 +31,6 @@ def _service(relay, job=None):
     svc = Service(relay, "127.0.0.1", loop=None)
     svc.job = job
     svc._with_scope = lambda fn: {}
-    svc._positions_while_capturing = lambda: {}
     return svc
 
 
@@ -70,3 +69,42 @@ def test_a_call_waits_for_a_short_status_read_instead_of_failing():
     start = time.monotonic()
     assert service._with_scope(lambda _scope: "ok") == "ok"
     assert time.monotonic() - start >= 0.2
+
+
+def test_capture_progress_marks_a_capture_the_relay_never_saw_start_and_it_expires():
+    relay = _relay()
+    now = {"t": 1000.0}
+    relay.clock = lambda: now["t"]
+    assert not relay.capture_running
+    relay.note_scope_packet(15209, [[1, 999], [3, 14]])
+    assert relay.capture_running
+    now["t"] += 31
+    assert not relay.capture_running
+    relay.note_scope_packet(15288, [[1, 15.0]])
+    relay.note_scope_packet(15208, [[1, 2]])
+    assert not relay.capture_running
+
+
+def test_status_during_our_capture_opens_no_second_connection():
+    relay = SimpleNamespace(app_link=None, capture_running=True)
+    svc = Service(relay, "127.0.0.1", loop=None)
+    svc.positions = {"rotation": 158.0, "pitch": 150.0}
+    svc.job = {"state": "running"}
+
+    def forbidden(_fn):
+        raise AssertionError("opened a second scope connection")
+
+    svc._with_scope = forbidden
+    status = svc.status()
+    assert (status["rotation"], status["pitch"]) == (158.0, 150.0)
+    assert status["busy_elsewhere"] is False
+
+
+def test_stop_job_stops_a_capture_that_no_job_owns():
+    relay = SimpleNamespace(app_link=None, capture_running=True)
+    svc = Service(relay, "127.0.0.1", loop=None)
+    stopped = []
+    svc._with_scope = lambda fn: fn(SimpleNamespace(stop_capture=lambda: stopped.append(1)))
+    assert "no job owned" in svc.stop_job()
+    assert stopped and relay.capture_running is False
+    assert svc.stop_job() == "nothing to stop"

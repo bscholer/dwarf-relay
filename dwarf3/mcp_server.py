@@ -1,6 +1,7 @@
 """Scope control operations. They use the relay connection path."""
 import base64
 import datetime as dt
+import logging
 import math
 import os
 import threading
@@ -11,6 +12,8 @@ from .client import Client
 from .files import Album
 from .spec import CAPABILITY_OPERATIONS, SPEC_VERSION
 from .scope import ALBUM_ROOT, EXPOSURE_INDEX, FILTERS, MOTOR_PITCH, MOTOR_ROTATION, Scope
+
+log = logging.getLogger("dwarf3.service")
 
 MIN_SUN_SEPARATION_DEG = 30.0
 MAX_MOVE_SECONDS = 5.0
@@ -67,13 +70,16 @@ class Service:
         self.lock = threading.Lock()
         self.job: dict | None = None
         self.cancel = threading.Event()
+        self.positions: dict = {}
 
-    def _scope(self) -> Scope:
+    def _client(self):
         from .proxy import RelayClient
 
         link = self.relay.app_link
-        client = RelayClient(self.relay, self.loop) if link and link.header else Client(LOCAL_RELAY)
-        return Scope(self.scope_host, log=lambda *_: None, client=client)
+        return RelayClient(self.relay, self.loop) if link and link.header else Client(LOCAL_RELAY)
+
+    def _scope(self) -> Scope:
+        return Scope(self.scope_host, log=log.info, client=self._client(), reconnect=self._client)
 
     def _with_scope(self, fn):
         if self.job and self.job["state"] == "running":
@@ -99,25 +105,23 @@ class Service:
                     "tele_darks": len(s.dark_list()), "wide_darks": len(s.dark_list(wide=True))}
 
         own_job = bool(self.job and self.job["state"] == "running")
-        state = {
+        if own_job:
+            # A second control connection makes the scope drop the capture's link, so reuse the last reading.
+            read_values = dict(self.positions)
+        else:
+            read_values = self._with_scope(read)
+            self.positions = {k: v for k, v in read_values.items() if k in ("rotation", "pitch")}
+        return {
             "app_connected": self.relay.app_link is not None,
             "busy_elsewhere": bool(self.relay.capture_running) and not own_job,
             "job": self.job,
+            "sd_free_gb": self._sd_free_gb(),
+            **read_values,
         }
-        if self.job and self.job["state"] == "running":
-            return {**state, **self._positions_while_capturing()}
-        return {**state, **self._with_scope(read)}
 
-    def _positions_while_capturing(self) -> dict:
-        """Read the motors over a second local connection. The capture keeps its own link."""
-        try:
-            scope = Scope(self.scope_host, log=lambda *_: None, client=Client(LOCAL_RELAY))
-            try:
-                return {"rotation": scope.position(MOTOR_ROTATION), "pitch": scope.position(MOTOR_PITCH)}
-            finally:
-                scope.close()
-        except Exception:
-            return {}
+    def _sd_free_gb(self) -> float | None:
+        gauges = getattr(getattr(self.relay, "metrics", None), "gauges", {})
+        return gauges.get(("sd_free_gigabytes", ()))
 
     def list_sessions(self) -> list[str]:
         album = Album(self.scope_host)
@@ -224,6 +228,7 @@ class Service:
             )
             job["state"] = "done"
         except Exception as exc:
+            log.warning("capture job %s failed: %s", job["id"], exc)
             job.update(state="failed", error=str(exc))
         finally:
             if scope:
@@ -231,8 +236,16 @@ class Service:
             self.lock.release()
 
     def stop_job(self) -> str:
+        """Stop our job. With no job running, stop a capture the scope still runs on its own."""
         self.cancel.set()
-        return "stop requested"
+        if self.job and self.job["state"] == "running":
+            return "stop requested"
+        if self.relay.capture_running:
+            log.warning("stopping a capture that no job owns")
+            self._with_scope(lambda s: s.stop_capture())
+            self.relay.capture_running = False
+            return "stopped a capture that no job owned"
+        return "nothing to stop"
 
     def start_dark(self, frames: int, exposure: str = "15", wide: bool = False) -> str:
         self._with_scope(lambda s: s.start_dark(exposure, "60", frames, wide=wide))

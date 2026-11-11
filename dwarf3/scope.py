@@ -1,7 +1,7 @@
 """Scope operations, with the firmware behavior found by live tests."""
 import time
 
-from .client import Client
+from .client import Client, ConnectionLost
 from .files import Album, count_failed, count_frames, raw_sessions
 from .wire import field_bytes, field_double, field_int, parse
 
@@ -30,6 +30,8 @@ NOTIFY_CALIBRATION = 15210
 NOTIFY_CAPTURE = 15208
 NOTIFY_TRACKING = 15212
 ALBUM_ROOT = "/Astronomy"
+START_GRACE_S = 30  # A start the scope refuses must show a session folder within this time.
+RECONNECTS = 3
 
 
 class ScopeError(RuntimeError):
@@ -41,11 +43,24 @@ def reply_code(fields, code_field: int = 1) -> int | None:
 
 
 class Scope:
-    def __init__(self, host: str, log=print, client=None):
+    def __init__(self, host: str, log=print, client=None, reconnect=None):
         self.host = host
         self.log = log
         self.client = client or Client(host)
+        self.reconnect = reconnect
         self.rotation_locked = False
+
+    def _recv(self):
+        """Read one packet. Open a new connection when the scope drops this one."""
+        for attempt in range(RECONNECTS + 1):
+            try:
+                return self.client.recv()
+            except ConnectionLost as exc:
+                if self.reconnect is None or attempt == RECONNECTS:
+                    raise
+                self.log(f"connection lost ({exc}), reconnecting")
+                time.sleep(1 + attempt)
+                self.client = self.reconnect()
 
     def _ok(self, name: str, fields, code_field: int = 1) -> None:
         code = reply_code(fields, code_field)
@@ -56,7 +71,7 @@ class Scope:
     def _wait(self, cmd: int, timeout: float, until) -> list | None:
         end = time.time() + timeout
         while time.time() < end:
-            packet = self.client.recv()
+            packet = self._recv()
             if packet and packet[0] == cmd and until(dict(packet[2])):
                 return packet[2]
         return None
@@ -141,20 +156,27 @@ class Scope:
 
         Capture start resets stackCount to 999, so the frame count comes from the
         FTP listing. A start error can arrive while the capture still runs, so this
-        follows the capture state and never exits on the start reply.
+        follows the folder listing and never exits on the start reply alone. A refused
+        start that makes no session folder within START_GRACE_S raises with the code.
+        Any exit after the start sends a stop, so a failed job never leaves the scope shooting.
         """
         album = Album(self.host)
+        started = False
         try:
             before = raw_sessions(album.names(ALBUM_ROOT))
             self.client.send(MODULE_ASTRO, 11005, field_int(1, FILTERS[filter_name]) + field_int(2, 1))
-            end = time.time() + 120 + frames * (exposure_s + 15)
+            started = True
+            begun = time.time()
+            end = begun + 120 + frames * (exposure_s + 15)
             session = None
             count = 0
+            start_code = 0
             next_poll = time.time() + 5
             while time.time() < end and not (cancel and cancel.is_set()):
-                packet = self.client.recv()
+                packet = self._recv()
                 if packet and packet[0] == 11005 and packet[1] != 0:
-                    self.log(f"capture start reply: code {reply_code(packet[2])}")
+                    start_code = reply_code(packet[2]) or 0
+                    self.log(f"capture start reply: code {start_code}")
                 if time.time() < next_poll:
                     continue
                 next_poll = time.time() + 5
@@ -166,14 +188,25 @@ class Scope:
                     self.log(f"frames: {count}/{frames}")
                     if progress:
                         progress(count, count_failed(names))
+                elif start_code and time.time() - begun > START_GRACE_S:
+                    raise ScopeError(f"capture start refused, code {start_code}")
                 if count >= frames:
                     break
+            started = False
             self.stop_capture()
             if session is None:
                 raise ScopeError("capture produced no session folder")
             return session
         finally:
+            if started:
+                self._stop_quietly()
             album.close()
+
+    def _stop_quietly(self) -> None:
+        try:
+            self.stop_capture()
+        except Exception as exc:
+            self.log(f"stop after a failed capture did not finish: {exc}")
 
     def stop_capture(self) -> None:
         self.client.send(MODULE_ASTRO, 11006)
