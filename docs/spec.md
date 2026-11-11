@@ -19,6 +19,7 @@ The service publishes `/openapi.json` and an MCP endpoint at `/mcp`. Both come f
 | `capture` | `startCapture`, `stopCapture` |
 | `darks` | `listDarks`, `startDark` |
 | `files` | `listSessions`, `listFiles`, `readFileChunk` |
+| `delete` | `deleteSession` |
 | `preview` | `getFrame` |
 | `pointing` | `pointScope` |
 

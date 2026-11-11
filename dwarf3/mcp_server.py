@@ -9,7 +9,7 @@ import uuid
 
 from . import frame
 from .client import Client
-from .files import Album
+from .files import Album, delete_session
 from .spec import CAPABILITY_OPERATIONS, SPEC_VERSION
 from .scope import ALBUM_ROOT, EXPOSURE_INDEX, FILTERS, MOTOR_PITCH, MOTOR_ROTATION, Scope
 
@@ -129,6 +129,15 @@ class Service:
             return sorted(n for n in album.names(ALBUM_ROOT) if n.startswith("DWARF_RAW_"))
         finally:
             album.close()
+
+    def delete_session(self, session: str) -> str:
+        """Delete one capture session from the scope. Refuse while any capture runs."""
+        if (self.job and self.job["state"] == "running") or self.relay.capture_running:
+            raise RuntimeError("a capture is running, stop it before deleting")
+        if not delete_session(self.scope_host, session):
+            raise ValueError(f"no such session: {session}")
+        log.warning("deleted session %s", session)
+        return f"deleted {session}"
 
     def list_files(self, path: str = "") -> list[dict]:
         album = Album(self.scope_host)

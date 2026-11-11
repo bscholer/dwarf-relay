@@ -9,6 +9,7 @@ CAPABILITY_OPERATIONS = {
     "capture": ["startCapture", "stopCapture"],
     "darks": ["listDarks", "startDark"],
     "files": ["listSessions", "listFiles", "readFileChunk"],
+    "delete": ["deleteSession"],
     "preview": ["getFrame"],
     "pointing": ["pointScope"],
 }

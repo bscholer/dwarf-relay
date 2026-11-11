@@ -1,6 +1,8 @@
 """FTP access to the scope album."""
 import ftplib
+import json
 import re
+import urllib.request
 from pathlib import Path
 
 RAW_SESSION = re.compile(r"^DWARF_RAW_")
@@ -18,6 +20,35 @@ def count_frames(names: list[str]) -> int:
 def count_failed(names: list[str]) -> int:
     """Count frames the scope tagged failed. They stay in the session folder."""
     return sum(1 for n in names if n.startswith("failed_") and n.endswith(".fits"))
+
+
+SESSION_NAME = re.compile(r"^DWARF_RAW_[A-Za-z0-9 ._-]+$")
+API_PORT = 8082
+MEDIA_TYPE_ASTRO, SUB_TYPE_SESSION = 4, 1
+
+
+def delete_session(host: str, session: str, urlopen=urllib.request.urlopen) -> bool:
+    """Delete one capture session through the scope album API, as the DWARFLAB app does.
+
+    The app names a session by its stacked.jpg entry. Return False when the scope has no such session."""
+    if not SESSION_NAME.match(session) or ".." in session:
+        raise ValueError("session must be a DWARF_RAW_ folder name")
+    entry = {
+        "fileName": session,
+        "filePath": f"/DWARF3/Astronomy/{session}/stacked.jpg",
+        "mediaType": MEDIA_TYPE_ASTRO,
+        "subType": SUB_TYPE_SESSION,
+    }
+    request = urllib.request.Request(
+        f"http://{host}:{API_PORT}/album/delete",
+        data=json.dumps({"datas": [entry]}).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urlopen(request, timeout=30) as resp:
+        reply = json.loads(resp.read())
+    results = reply.get("data") or []
+    return reply.get("code") == 0 and bool(results) and bool(results[0].get("isSuccess"))
 
 
 def raw_sessions(names: list[str]) -> set[str]:

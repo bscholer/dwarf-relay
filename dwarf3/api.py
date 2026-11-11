@@ -80,6 +80,10 @@ class DarkIn(BaseModel):
     wide: bool = Field(False, description="true for the wide camera")
 
 
+class SessionIn(BaseModel):
+    session: str = Field(description="Session folder name, starting with DWARF_RAW_.")
+
+
 class FilesIn(BaseModel):
     path: str = Field("", description="Folder under the album. Empty means the album root.")
 
@@ -181,6 +185,17 @@ def status() -> StatusOut:
                error_map=CONTROL_ERRORS)
 def list_sessions() -> SessionList:
     return SessionList(sessions=svc().list_sessions())
+
+
+@mcp_tool(name="delete_session", title="Delete a capture session",
+          description="Delete one capture session folder from the scope SD card. This cannot be undone. "
+                      "Refused while a capture runs.",
+          annotations=acts(destructive_hint=True, idempotent_hint=True), error_map=TOOL_ERRORS)
+@http_endpoint(path="/api/sessions/delete", operation_id="deleteSession", method="POST", payload_model=SessionIn,
+               response_model=Message, description="Delete one capture session from the scope SD card.",
+               tags=["Files"], error_map=CONTROL_ERRORS)
+def delete_session(p: SessionIn) -> Message:
+    return Message(message=svc().delete_session(p.session))
 
 
 @http_endpoint(path="/api/files", operation_id="listFiles", method="GET", payload_model=FilesIn,

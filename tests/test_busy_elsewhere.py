@@ -119,3 +119,16 @@ def test_start_capture_waits_for_a_short_status_read_instead_of_failing():
     threading.Timer(0.2, service.lock.release).start()
     job = service.start_capture(2)
     assert job["state"] == "running"
+
+
+def test_delete_session_is_refused_while_any_capture_runs_and_reports_a_missing_session():
+    import pytest
+
+    relay = SimpleNamespace(app_link=None, capture_running=True)
+    svc = Service(relay, "127.0.0.1", loop=None)
+    with pytest.raises(RuntimeError, match="capture is running"):
+        svc.delete_session("DWARF_RAW_x")
+    relay.capture_running = False
+    svc.job = {"state": "running"}
+    with pytest.raises(RuntimeError, match="capture is running"):
+        svc.delete_session("DWARF_RAW_x")

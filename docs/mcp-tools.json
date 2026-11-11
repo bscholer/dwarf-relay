@@ -119,6 +119,44 @@
   },
   {
     "annotations": {
+      "destructiveHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "description": "Delete one capture session folder from the scope SD card. This cannot be undone. Refused while a capture runs.",
+    "inputSchema": {
+      "properties": {
+        "session": {
+          "description": "Session folder name, starting with DWARF_RAW_.",
+          "title": "Session",
+          "type": "string"
+        }
+      },
+      "required": [
+        "session"
+      ],
+      "title": "SessionIn",
+      "type": "object"
+    },
+    "name": "delete_session",
+    "outputSchema": {
+      "properties": {
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "Message",
+      "type": "object"
+    },
+    "title": "Delete a capture session"
+  },
+  {
+    "annotations": {
       "idempotentHint": true,
       "openWorldHint": false,
       "readOnlyHint": false
