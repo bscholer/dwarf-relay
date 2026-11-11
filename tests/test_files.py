@@ -70,3 +70,17 @@ def test_delete_session_refuses_names_that_could_reach_outside_a_raw_session():
     for bad in ("../Normal_Photos", "DWARF_RAW_x/../../y", "Videos", "DWARF_RAW_a/b", ""):
         with pytest.raises(ValueError):
             delete_session("scope", bad, lambda *_a, **_k: pytest.fail("called the scope"))
+
+
+def test_sd_free_gb_reads_device_info_and_gives_none_when_the_scope_is_silent():
+    from dwarf3.files import sd_free_gb
+
+    card = {"code": 0, "data": {"sdCardInfo": {"availableSize": 89, "hasSdcard": True, "totalSize": 104}}}
+    assert sd_free_gb("scope", _fake_urlopen(card, [])) == 89.0
+    nocard = {"code": 0, "data": {"sdCardInfo": {"availableSize": 0, "hasSdcard": False}}}
+    assert sd_free_gb("scope", _fake_urlopen(nocard, [])) is None
+
+    def down(*_a, **_k):
+        raise OSError("unreachable")
+
+    assert sd_free_gb("scope", down) is None

@@ -51,6 +51,23 @@ def delete_session(host: str, session: str, urlopen=urllib.request.urlopen) -> b
     return reply.get("code") == 0 and bool(results) and bool(results[0].get("isSuccess"))
 
 
+def sd_free_gb(host: str, urlopen=urllib.request.urlopen) -> float | None:
+    """Read the free space of the scope SD card from deviceInfo. Return None when the scope does not say."""
+    request = urllib.request.Request(
+        f"http://{host}:{API_PORT}/deviceInfo",
+        data=b"{}",
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=5) as resp:
+            card = (json.loads(resp.read()).get("data") or {}).get("sdCardInfo") or {}
+    except (OSError, ValueError):
+        return None
+    free = card.get("availableSize")
+    return float(free) if card.get("hasSdcard") and isinstance(free, (int, float)) else None
+
+
 def raw_sessions(names: list[str]) -> set[str]:
     return {n for n in names if RAW_SESSION.match(n)}
 

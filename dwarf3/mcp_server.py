@@ -9,7 +9,7 @@ import uuid
 
 from . import frame
 from .client import Client
-from .files import Album, delete_session
+from .files import Album, delete_session, sd_free_gb
 from .spec import CAPABILITY_OPERATIONS, SPEC_VERSION
 from .scope import ALBUM_ROOT, EXPOSURE_INDEX, FILTERS, MOTOR_PITCH, MOTOR_ROTATION, Scope
 
@@ -120,6 +120,9 @@ class Service:
         }
 
     def _sd_free_gb(self) -> float | None:
+        free = sd_free_gb(self.scope_host)
+        if free is not None:
+            return free
         gauges = getattr(getattr(self.relay, "metrics", None), "gauges", {})
         return gauges.get(("sd_free_gigabytes", ()))
 
