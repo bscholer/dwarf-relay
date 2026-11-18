@@ -43,11 +43,15 @@ The relay logs decoded traffic as JSONL. It redacts passwords from API replies, 
 
 ## MCP
 
-The relay also serves MCP over HTTP at `http://<relay-ip>:9902/mcp`. Commands use the app connection if the app is connected. The endpoint has no login, as the scope has none.
+The relay also serves MCP over HTTP at `http://<relay-ip>:9902/mcp`. Commands use the app connection if the app is connected. Control tools need a bearer token (see Auth). `status` and `capabilities` stay open.
 
 Tools: `status`, `list_sessions`, `list_darks`, `prepare`, `move`, `close_barrel`, `calibrate`, `goto`, `start_capture`, `stop_job`, `start_dark`. `goto` refuses a target within 30 degrees of the Sun. Only `status`, `list_sessions`, `list_darks`, and `move` have a live test.
 
-Each tool is also a REST route under `/api/` on the same port, such as `GET /api/status` and `POST /api/goto`. Both come from one declaration in `dwarf3/api.py` (`@http_endpoint` and `@mcp_tool` in `dwarf3/endpoints.py`). The published specs are `docs/openapi.json` and `docs/mcp-tools.json`, also live at `/openapi.json` and MCP `tools/list`. After you change a tool, run `python -m scripts.export_spec`. A test fails when the files are stale. Set `DWARF3_API_TOKEN` and use `authentication=AuthMode.TOKEN` on a tool to require a bearer token.
+Each tool is also a REST route under `/api/` on the same port, such as `GET /api/status` and `POST /api/goto`. Both come from one declaration in `dwarf3/api.py` (`@http_endpoint` and `@mcp_tool` in `dwarf3/endpoints.py`). The published specs are `docs/openapi.json` and `docs/mcp-tools.json`, also live at `/openapi.json` and MCP `tools/list`. After you change a tool, run `python -m scripts.export_spec`. A test fails when the files are stale. Tools default to `authentication=AuthMode.TOKEN`. Only `status` and `capabilities` are open.
+
+## Auth
+
+Every operation except `status` and `capabilities` needs `Authorization: Bearer <token>`, on REST and MCP alike. Set the token with `DWARF3_API_TOKEN`. If you do not, the relay makes one on first start and keeps it in `<log-dir>/api-token` (mode 600), then prints the path, not the token. Set `DWARF3_AUTH=off` to turn auth off, for a relay on a network you trust. `status` also reports battery, temperatures, and scope reachability, as the scope last sent them.
 
 ## Metrics and logs
 

@@ -7,7 +7,7 @@ import uvicorn
 from fastapi import FastAPI, Response
 from pydantic import BaseModel, Field
 
-from .endpoints import StatusHint, ToolAnnotations, http_endpoint, mcp_tool, mount_endpoints
+from .endpoints import AuthMode, StatusHint, ToolAnnotations, http_endpoint, mcp_tool, mount_endpoints
 from .mcp_server import Service, SunTooCloseError
 
 _service: Service | None = None
@@ -132,6 +132,11 @@ class StatusOut(BaseModel):
     tele_darks: int | None = None
     wide_darks: int | None = None
     sd_free_gb: float | None = Field(None, description="Free space on the scope SD card, when known.")
+    battery_percent: float | None = Field(None, description="Battery charge, as the scope last reported it.")
+    device_temperature_c: float | None = Field(None, description="Scope body temperature, as last reported.")
+    tele_sensor_temperature_c: float | None = Field(None, description="Tele sensor temperature, as last reported.")
+    wide_sensor_temperature_c: float | None = Field(None, description="Wide sensor temperature, as last reported.")
+    scope_reachable: bool | None = Field(None, description="The scope answered on its API port at the last probe.")
 
 
 class SessionList(BaseModel):
@@ -158,21 +163,21 @@ def acts(**extra: bool) -> ToolAnnotations:
 
 @mcp_tool(name="capabilities", title="List service capabilities",
           description="Return the spec version and the features this service supports.",
-          annotations=read_only(), error_map=TOOL_ERRORS)
+          annotations=read_only(), error_map=TOOL_ERRORS, authentication=AuthMode.NONE)
 @http_endpoint(path="/api/capabilities", operation_id="getCapabilities", method="GET",
                response_model=CapabilitiesOut,
                description="Return the spec version and the features this service supports.",
-               tags=["Scope"], error_map=CONTROL_ERRORS)
+               tags=["Scope"], error_map=CONTROL_ERRORS, authentication=AuthMode.NONE)
 def capabilities() -> CapabilitiesOut:
     return CapabilitiesOut(**svc().capabilities())
 
 
 @mcp_tool(name="status", title="Read scope status",
           description="Read motor positions, app connection, dark counts, and the job state.",
-          annotations=read_only(), error_map=TOOL_ERRORS)
+          annotations=read_only(), error_map=TOOL_ERRORS, authentication=AuthMode.NONE)
 @http_endpoint(path="/api/status", operation_id="getStatus", method="GET", response_model=StatusOut,
                description="Read motor positions, app connection, dark counts, and the job state.",
-               tags=["Scope"], error_map=CONTROL_ERRORS)
+               tags=["Scope"], error_map=CONTROL_ERRORS, authentication=AuthMode.NONE)
 def status() -> StatusOut:
     return StatusOut(**svc().status())
 
@@ -317,7 +322,7 @@ def start_dark(p: DarkIn) -> Message:
     return Message(message=svc().start_dark(p.frames, p.exposure, p.wide))
 
 
-app = FastAPI(title="dwarf3 relay", version="0.1.0")
+app = FastAPI(title="dwarf3 relay", version="0.2.0")
 mount_endpoints(app)
 
 

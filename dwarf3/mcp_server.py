@@ -116,7 +116,20 @@ class Service:
             "busy_elsewhere": bool(self.relay.capture_running) and not own_job,
             "job": self.job,
             "sd_free_gb": self._sd_free_gb(),
+            **self._reported(),
             **read_values,
+        }
+
+    def _reported(self) -> dict:
+        """Values the scope pushes while a client is connected. They hold the last reading."""
+        gauges = getattr(getattr(self.relay, "metrics", None), "gauges", {})
+        up = gauges.get(("scope_up", ()))
+        return {
+            "battery_percent": gauges.get(("battery_percent", ())),
+            "device_temperature_c": gauges.get(("device_temperature_celsius", ())),
+            "tele_sensor_temperature_c": gauges.get(("sensor_temperature_celsius", (("camera", "tele"),))),
+            "wide_sensor_temperature_c": gauges.get(("sensor_temperature_celsius", (("camera", "wide"),))),
+            "scope_reachable": None if up is None else bool(up),
         }
 
     def _sd_free_gb(self) -> float | None:

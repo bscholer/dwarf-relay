@@ -14,9 +14,11 @@ import inspect
 import json
 import logging
 import os
+import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
+from pathlib import Path
 from typing import Annotated, Any, get_type_hints
 
 from fastapi import Depends, FastAPI, Query, Request
@@ -28,6 +30,8 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 log = logging.getLogger("dwarf3.endpoints")
 
 TOKEN_ENV = "DWARF3_API_TOKEN"
+AUTH_ENV = "DWARF3_AUTH"
+TOKEN_FILE = "api-token"
 MCP_PROTOCOL_VERSION = "2025-06-18"
 
 HttpMethod = str
@@ -120,7 +124,7 @@ def http_endpoint(
     payload_model: type[BaseModel] | None = None,
     response_model: type[BaseModel] | None = None,
     error_map: dict[type[Exception], StatusHint] | None = None,
-    authentication: AuthMode = AuthMode.NONE,
+    authentication: AuthMode = AuthMode.TOKEN,
     status_code: int = 200,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     def register(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -153,7 +157,7 @@ def mcp_tool(
     description: str,
     annotations: ToolAnnotations | None = None,
     error_map: dict[type[Exception], str | Callable[[Exception], str]] | None = None,
-    authentication: AuthMode = AuthMode.NONE,
+    authentication: AuthMode = AuthMode.TOKEN,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     def register(func: Callable[..., Any]) -> Callable[..., Any]:
         if name in _TOOLS:
@@ -185,7 +189,31 @@ def _lookup(mapping: dict[type[Exception], Any], exc: Exception) -> Any | None:
 _bearer = HTTPBearer(auto_error=False)
 
 
+def auth_enabled() -> bool:
+    """Control endpoints need a token unless DWARF3_AUTH is off."""
+    return os.environ.get(AUTH_ENV, "on").strip().lower() not in ("off", "0", "false", "no")
+
+
+def ensure_token(directory: Path) -> Path | None:
+    """Pick the API token. Use DWARF3_API_TOKEN, else read or create one in the data directory.
+
+    Returns the token file when the relay made one, so the caller can say where it is.
+    """
+    if not auth_enabled() or os.environ.get(TOKEN_ENV):
+        return None
+    path = directory / TOKEN_FILE
+    if not path.exists():
+        directory.mkdir(parents=True, exist_ok=True)
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w") as f:
+            f.write(secrets.token_urlsafe(32))
+    os.environ[TOKEN_ENV] = path.read_text().strip()
+    return path
+
+
 def _check_token(supplied: str | None) -> None:
+    if not auth_enabled():
+        return
     expected = os.environ.get(TOKEN_ENV)
     if not expected:
         raise _EndpointError(503, "auth_not_configured", f"{TOKEN_ENV} is not set")
