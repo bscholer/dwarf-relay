@@ -394,6 +394,18 @@
           "vendor": {
             "title": "Vendor",
             "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Version of this service.",
+            "title": "Version"
           }
         },
         "required": [
@@ -458,6 +470,30 @@
             "title": "Busy Elsewhere",
             "type": "boolean"
           },
+          "calibration_state": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Scope calibration state code as last reported. 0 is idle, other codes not confirmed.",
+            "title": "Calibration State"
+          },
+          "capture_state": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Scope capture state as last reported. 1 is running, 0 is idle.",
+            "title": "Capture State"
+          },
           "device_temperature_c": {
             "anyOf": [
               {
@@ -469,6 +505,18 @@
             ],
             "description": "Scope body temperature, as last reported.",
             "title": "Device Temperature C"
+          },
+          "goto_state": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Scope goto state code as last reported. Meaning not confirmed.",
+            "title": "Goto State"
           },
           "job": {
             "anyOf": [
@@ -526,6 +574,18 @@
             "description": "Free space on the scope SD card, when known.",
             "title": "Sd Free Gb"
           },
+          "sd_total_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Size of the scope SD card, as last reported.",
+            "title": "Sd Total Gb"
+          },
           "tele_darks": {
             "anyOf": [
               {
@@ -548,6 +608,18 @@
             ],
             "description": "Tele sensor temperature, as last reported.",
             "title": "Tele Sensor Temperature C"
+          },
+          "tracking_state": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Scope tracking state as last reported. 1 is tracking.",
+            "title": "Tracking State"
           },
           "wide_darks": {
             "anyOf": [
