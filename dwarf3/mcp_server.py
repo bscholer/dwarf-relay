@@ -7,7 +7,7 @@ import os
 import threading
 import uuid
 
-from . import frame
+from . import __version__, frame
 from .client import Client
 from .files import Album, delete_session, sd_free_gb
 from .spec import CAPABILITY_OPERATIONS, SPEC_VERSION
@@ -96,7 +96,7 @@ class Service:
             self.lock.release()
 
     def capabilities(self) -> dict:
-        return {"spec_version": SPEC_VERSION, "service": {"name": "dwarf3-relay", "vendor": "DWARFLAB", "model": "DWARF 3"},
+        return {"spec_version": SPEC_VERSION, "service": {"name": "dwarf3-relay", "vendor": "DWARFLAB", "model": "DWARF 3", "version": __version__},
                 "capabilities": sorted(CAPABILITY_OPERATIONS)}
 
     def status(self) -> dict:
@@ -124,7 +124,16 @@ class Service:
         """Values the scope pushes while a client is connected. They hold the last reading."""
         gauges = getattr(getattr(self.relay, "metrics", None), "gauges", {})
         up = gauges.get(("scope_up", ()))
+        def state(name):
+            value = gauges.get((name, ()))
+            return None if value is None else int(value)
+
         return {
+            "sd_total_gb": gauges.get(("sd_total_gigabytes", ())),
+            "capture_state": state("capture_state"),
+            "tracking_state": state("tracking_state"),
+            "goto_state": state("goto_state"),
+            "calibration_state": state("calibration_state"),
             "battery_percent": gauges.get(("battery_percent", ())),
             "device_temperature_c": gauges.get(("device_temperature_celsius", ())),
             "tele_sensor_temperature_c": gauges.get(("sensor_temperature_celsius", (("camera", "tele"),))),

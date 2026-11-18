@@ -7,6 +7,7 @@ import uvicorn
 from fastapi import FastAPI, Response
 from pydantic import BaseModel, Field
 
+from . import __version__
 from .endpoints import AuthMode, StatusHint, ToolAnnotations, http_endpoint, mcp_tool, mount_endpoints
 from .mcp_server import Service, SunTooCloseError
 
@@ -29,6 +30,7 @@ class ServiceInfo(BaseModel):
     name: str
     vendor: str
     model: str
+    version: str | None = Field(None, description="Version of this service.")
 
 
 class CapabilitiesOut(BaseModel):
@@ -132,6 +134,13 @@ class StatusOut(BaseModel):
     tele_darks: int | None = None
     wide_darks: int | None = None
     sd_free_gb: float | None = Field(None, description="Free space on the scope SD card, when known.")
+    sd_total_gb: float | None = Field(None, description="Size of the scope SD card, as last reported.")
+    capture_state: int | None = Field(None, description="Scope capture state as last reported. 1 is running, 0 is idle.")
+    tracking_state: int | None = Field(None, description="Scope tracking state as last reported. 1 is tracking.")
+    goto_state: int | None = Field(None, description="Scope goto state code as last reported. Meaning not confirmed.")
+    calibration_state: int | None = Field(
+        None, description="Scope calibration state code as last reported. 0 is idle, other codes not confirmed."
+    )
     battery_percent: float | None = Field(None, description="Battery charge, as the scope last reported it.")
     device_temperature_c: float | None = Field(None, description="Scope body temperature, as last reported.")
     tele_sensor_temperature_c: float | None = Field(None, description="Tele sensor temperature, as last reported.")
@@ -322,7 +331,7 @@ def start_dark(p: DarkIn) -> Message:
     return Message(message=svc().start_dark(p.frames, p.exposure, p.wide))
 
 
-app = FastAPI(title="dwarf3 relay", version="0.2.0")
+app = FastAPI(title="dwarf3 relay", version=__version__)
 mount_endpoints(app)
 
 

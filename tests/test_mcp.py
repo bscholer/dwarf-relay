@@ -153,6 +153,9 @@ def test_status_reports_battery_and_temperatures(client, svc, monkeypatch):
     m.observe("scope", 15243, 2, [(2, 31)])
     m.observe("scope", 15292, 2, [(1, 41)])
     m.observe("scope", 15292, 2, [(1, 39), (2, 1)])
+    m.observe("scope", 15203, 2, [(1, 31), (2, 64)])
+    m.observe("scope", 15212, 2, [(1, 1)])
+    m.observe("scope", 15208, 2, [])
     m.set("scope_up", 1)
     svc.relay.metrics = m
     monkeypatch.setattr(Service, "_with_scope", lambda self, read: {"rotation": 1.0, "pitch": 2.0,
@@ -163,6 +166,9 @@ def test_status_reports_battery_and_temperatures(client, svc, monkeypatch):
     assert body["device_temperature_c"] == 31
     assert (body["tele_sensor_temperature_c"], body["wide_sensor_temperature_c"]) == (41, 39)
     assert body["scope_reachable"] is True
+    assert body["sd_total_gb"] == 64
+    assert (body["tracking_state"], body["capture_state"]) == (1, 0)
+    assert body["goto_state"] is None, "no notification yet means unknown, not zero"
 
 
 def test_ensure_token_makes_one_and_keeps_it(tmp_path, monkeypatch):
@@ -176,3 +182,9 @@ def test_ensure_token_makes_one_and_keeps_it(tmp_path, monkeypatch):
     assert path.read_text() == first
     monkeypatch.setenv("DWARF3_API_TOKEN", "from-env")
     assert ensure_token(tmp_path / "other") is None
+
+
+def test_capabilities_report_the_service_version(anon):
+    from dwarf3 import __version__
+
+    assert anon.get("/api/capabilities").json()["service"]["version"] == __version__

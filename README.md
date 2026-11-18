@@ -51,7 +51,7 @@ Each tool is also a REST route under `/api/` on the same port, such as `GET /api
 
 ## Auth
 
-Every operation except `status` and `capabilities` needs `Authorization: Bearer <token>`, on REST and MCP alike. Set the token with `DWARF3_API_TOKEN`. If you do not, the relay makes one on first start and keeps it in `<log-dir>/api-token` (mode 600), then prints the path, not the token. Set `DWARF3_AUTH=off` to turn auth off, for a relay on a network you trust. `status` also reports battery, temperatures, and scope reachability, as the scope last sent them.
+Every operation except `status` and `capabilities` needs `Authorization: Bearer <token>`, on REST and MCP alike. Set the token with `DWARF3_API_TOKEN`. If you do not, the relay makes one on first start and keeps it in `<log-dir>/api-token` (mode 600), then prints the path, not the token. Set `DWARF3_AUTH=off` to turn auth off, for a relay on a network you trust. `status` also reports battery, temperatures, SD card size, the capture, tracking, goto, and calibration state codes, and scope reachability, as the scope last sent them. A field is empty until the scope has sent it. Capture and tracking `1` mean running. `capabilities` reports the relay version.
 
 ## Metrics and logs
 
