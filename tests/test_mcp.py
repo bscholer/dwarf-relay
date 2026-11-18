@@ -40,7 +40,7 @@ def svc(monkeypatch):
 
 @pytest.fixture
 def client(svc, monkeypatch):
-    monkeypatch.delenv("DWARF3_AUTH", raising=False)
+    monkeypatch.setenv("DWARF3_AUTH", "on")
     monkeypatch.setenv("DWARF3_API_TOKEN", "test-token")
     return TestClient(api.app, headers={"Authorization": "Bearer test-token"})
 
@@ -173,7 +173,7 @@ def test_status_reports_battery_and_temperatures(client, svc, monkeypatch):
 
 def test_ensure_token_makes_one_and_keeps_it(tmp_path, monkeypatch):
     monkeypatch.delenv("DWARF3_API_TOKEN", raising=False)
-    monkeypatch.delenv("DWARF3_AUTH", raising=False)
+    monkeypatch.setenv("DWARF3_AUTH", "on")
     path = ensure_token(tmp_path)
     first = path.read_text()
     assert len(first) >= 32 and (path.stat().st_mode & 0o777) == 0o600
@@ -188,3 +188,24 @@ def test_capabilities_report_the_service_version(anon):
     from dwarf3 import __version__
 
     assert anon.get("/api/capabilities").json()["service"]["version"] == __version__
+
+
+def test_auth_is_off_by_default(anon, monkeypatch):
+    monkeypatch.delenv("DWARF3_AUTH", raising=False)
+    monkeypatch.delenv("DWARF3_API_TOKEN", raising=False)
+    r = anon.post("/api/move", json={"angle": 0, "length": 0.5, "seconds": 60})
+    assert r.status_code == 422, "past auth with no token, stopped by validation"
+
+
+def test_setting_a_token_turns_auth_on_unless_told_otherwise(anon, monkeypatch):
+    monkeypatch.delenv("DWARF3_AUTH", raising=False)
+    monkeypatch.setenv("DWARF3_API_TOKEN", "t")
+    assert anon.post("/api/close_barrel").status_code == 401
+    monkeypatch.setenv("DWARF3_AUTH", "off")
+    assert anon.post("/api/move", json={"angle": 0, "length": 0.5, "seconds": 60}).status_code == 422
+
+
+def test_no_token_file_when_auth_is_off(tmp_path, monkeypatch):
+    monkeypatch.delenv("DWARF3_API_TOKEN", raising=False)
+    monkeypatch.delenv("DWARF3_AUTH", raising=False)
+    assert ensure_token(tmp_path) is None and not (tmp_path / "api-token").exists()

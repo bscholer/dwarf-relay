@@ -1,6 +1,6 @@
 [project]
 name = "dwarf3-control"
-version = "0.3.0"
+version = "0.4.0"
 description = "Command-line control for a DWARF 3 smart telescope"
 requires-python = ">=3.11"
 dependencies = ["websocket-client>=1.8", "fastapi>=0.115", "uvicorn>=0.30", "pydantic>=2.7"]
