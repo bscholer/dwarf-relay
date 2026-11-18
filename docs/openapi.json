@@ -440,11 +440,35 @@
             "title": "App Connected",
             "type": "boolean"
           },
+          "battery_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Battery charge, as the scope last reported it.",
+            "title": "Battery Percent"
+          },
           "busy_elsewhere": {
             "default": false,
             "description": "The scope reports a capture that this service did not start.",
             "title": "Busy Elsewhere",
             "type": "boolean"
+          },
+          "device_temperature_c": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Scope body temperature, as last reported.",
+            "title": "Device Temperature C"
           },
           "job": {
             "anyOf": [
@@ -478,6 +502,18 @@
             ],
             "title": "Rotation"
           },
+          "scope_reachable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The scope answered on its API port at the last probe.",
+            "title": "Scope Reachable"
+          },
           "sd_free_gb": {
             "anyOf": [
               {
@@ -501,6 +537,18 @@
             ],
             "title": "Tele Darks"
           },
+          "tele_sensor_temperature_c": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Tele sensor temperature, as last reported.",
+            "title": "Tele Sensor Temperature C"
+          },
           "wide_darks": {
             "anyOf": [
               {
@@ -511,6 +559,18 @@
               }
             ],
             "title": "Wide Darks"
+          },
+          "wide_sensor_temperature_c": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Wide sensor temperature, as last reported.",
+            "title": "Wide Sensor Temperature C"
           }
         },
         "required": [
@@ -519,6 +579,12 @@
         ],
         "title": "StatusOut",
         "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "scheme": "bearer",
+        "type": "http"
       }
     }
   },
@@ -542,6 +608,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unauthorized"
           },
           "409": {
             "content": {
@@ -574,6 +650,11 @@
             "description": "scope_error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Calibratescope",
         "tags": [
           "Scope"
@@ -657,6 +738,16 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unauthorized"
+          },
           "409": {
             "content": {
               "application/json": {
@@ -688,6 +779,11 @@
             "description": "scope_error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Startcapture",
         "tags": [
           "Capture"
@@ -709,6 +805,16 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unauthorized"
+          },
           "409": {
             "content": {
               "application/json": {
@@ -740,6 +846,11 @@
             "description": "scope_error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Stopcapture",
         "tags": [
           "Capture"
@@ -761,6 +872,16 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unauthorized"
+          },
           "409": {
             "content": {
               "application/json": {
@@ -792,6 +913,11 @@
             "description": "scope_error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Closebarrel",
         "tags": [
           "Scope"
@@ -823,6 +949,16 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unauthorized"
+          },
           "409": {
             "content": {
               "application/json": {
@@ -854,6 +990,11 @@
             "description": "scope_error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Startdark",
         "tags": [
           "Darks"
@@ -889,6 +1030,16 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unauthorized"
+          },
           "409": {
             "content": {
               "application/json": {
@@ -920,6 +1071,11 @@
             "description": "scope_error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Listdarks",
         "tags": [
           "Darks"
@@ -955,6 +1111,16 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unauthorized"
+          },
           "409": {
             "content": {
               "application/json": {
@@ -986,6 +1152,11 @@
             "description": "scope_error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Listfiles",
         "tags": [
           "Files"
@@ -1045,6 +1216,16 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unauthorized"
+          },
           "409": {
             "content": {
               "application/json": {
@@ -1076,6 +1257,11 @@
             "description": "scope_error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Readfilechunk",
         "tags": [
           "Files"
@@ -1111,6 +1297,16 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unauthorized"
+          },
           "409": {
             "content": {
               "application/json": {
@@ -1142,6 +1338,11 @@
             "description": "scope_error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Getframe",
         "tags": [
           "Preview"
@@ -1173,6 +1374,16 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unauthorized"
+          },
           "409": {
             "content": {
               "application/json": {
@@ -1204,6 +1415,11 @@
             "description": "scope_error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Gototarget",
         "tags": [
           "Scope"
@@ -1235,6 +1451,16 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unauthorized"
+          },
           "409": {
             "content": {
               "application/json": {
@@ -1266,6 +1492,11 @@
             "description": "scope_error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Movescope",
         "tags": [
           "Scope"
@@ -1297,6 +1528,16 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unauthorized"
+          },
           "409": {
             "content": {
               "application/json": {
@@ -1328,6 +1569,11 @@
             "description": "scope_error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Pointscope",
         "tags": [
           "Scope"
@@ -1349,6 +1595,16 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unauthorized"
+          },
           "409": {
             "content": {
               "application/json": {
@@ -1380,6 +1636,11 @@
             "description": "scope_error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Preparescope",
         "tags": [
           "Scope"
@@ -1401,6 +1662,16 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unauthorized"
+          },
           "409": {
             "content": {
               "application/json": {
@@ -1432,6 +1703,11 @@
             "description": "scope_error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Listsessions",
         "tags": [
           "Files"
@@ -1463,6 +1739,16 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unauthorized"
+          },
           "409": {
             "content": {
               "application/json": {
@@ -1494,6 +1780,11 @@
             "description": "scope_error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Deletesession",
         "tags": [
           "Files"

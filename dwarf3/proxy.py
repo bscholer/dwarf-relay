@@ -16,6 +16,7 @@ from datetime import datetime
 from pathlib import Path
 
 from . import api
+from .endpoints import ensure_token
 from .metrics import Metrics, command_name, summary
 from .scope import NOTIFY_CAPTURE, STATE_RUNNING
 from .wire import field_bytes, field_int, parse
@@ -426,7 +427,10 @@ async def run(upstream: str, listen: str, log_dir: Path, mcp_port: int = 9902) -
     await asyncio.get_running_loop().create_datagram_endpoint(
         lambda: UdpRelay(upstream, CONTROL_PORT, log), local_addr=(listen, CONTROL_PORT)
     )
+    token_file = ensure_token(log_dir)
     await api.serve(relay, upstream, listen, mcp_port)
+    if token_file:
+        print(f"API token is in {token_file}. Control endpoints need it. Set DWARF3_AUTH=off to turn that off.", flush=True)
     probe = asyncio.create_task(probe_scope(relay, upstream))
     print(f"relay ready. Enter {os.environ.get('DWARF3_RELAY_IP') or local_ip(upstream)} in the app. MCP port {mcp_port}. Log: {log.path}", flush=True)
     await probe

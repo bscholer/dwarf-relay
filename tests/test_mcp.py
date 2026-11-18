@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from dwarf3 import api
-from dwarf3.endpoints import tool_manifest
+from dwarf3.endpoints import ensure_token, tool_manifest
 from dwarf3.mcp_server import Service, require_safe_target, sun_position
 from scripts.conformance import check
 from scripts.export_spec import DOCS, generated
@@ -39,7 +39,14 @@ def svc(monkeypatch):
 
 
 @pytest.fixture
-def client(svc):
+def client(svc, monkeypatch):
+    monkeypatch.delenv("DWARF3_AUTH", raising=False)
+    monkeypatch.setenv("DWARF3_API_TOKEN", "test-token")
+    return TestClient(api.app, headers={"Authorization": "Bearer test-token"})
+
+
+@pytest.fixture
+def anon(client):
     return TestClient(api.app)
 
 
@@ -112,3 +119,60 @@ def test_conformance_reports_a_missing_operation(client):
         return data
 
     assert check(get_json) == ["missing operation gotoTarget"]
+
+
+def test_control_endpoints_need_the_token_by_default(anon):
+    for path, body in (("/api/close_barrel", None), ("/api/goto", {"name": "x", "ra_hours": 1, "dec_degrees": 1})):
+        r = anon.post(path, json=body)
+        assert (r.status_code, r.json()["code"]) == (401, "unauthorized")
+    r = anon.post("/api/close_barrel", headers={"Authorization": "Bearer wrong"})
+    assert r.status_code == 401
+    request = {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "close_barrel", "arguments": {}}}
+    assert anon.post("/mcp", json=request).json()["result"]["isError"] is True
+
+
+def test_status_and_capabilities_stay_open(anon, svc, monkeypatch):
+    monkeypatch.setattr(Service, "_with_scope", lambda self, read: {"rotation": 1.0, "pitch": 2.0,
+                                                                    "tele_darks": 0, "wide_darks": 0})
+    monkeypatch.setattr(Service, "_sd_free_gb", lambda self: None)
+    assert anon.get("/api/capabilities").status_code == 200
+    assert anon.get("/api/status").status_code == 200
+
+
+def test_auth_off_lets_control_through(anon, monkeypatch):
+    monkeypatch.setenv("DWARF3_AUTH", "off")
+    r = anon.post("/api/move", json={"angle": 0, "length": 0.5, "seconds": 60})
+    assert r.status_code == 422, "past auth, stopped by validation"
+
+
+def test_status_reports_battery_and_temperatures(client, svc, monkeypatch):
+    from dwarf3.metrics import Metrics
+
+    m = Metrics()
+    m.observe("scope", 15201, 2, [(1, 87)])
+    m.observe("scope", 15243, 2, [(2, 31)])
+    m.observe("scope", 15292, 2, [(1, 41)])
+    m.observe("scope", 15292, 2, [(1, 39), (2, 1)])
+    m.set("scope_up", 1)
+    svc.relay.metrics = m
+    monkeypatch.setattr(Service, "_with_scope", lambda self, read: {"rotation": 1.0, "pitch": 2.0,
+                                                                    "tele_darks": 0, "wide_darks": 0})
+    monkeypatch.setattr(Service, "_sd_free_gb", lambda self: None)
+    body = client.get("/api/status").json()
+    assert body["battery_percent"] == 87
+    assert body["device_temperature_c"] == 31
+    assert (body["tele_sensor_temperature_c"], body["wide_sensor_temperature_c"]) == (41, 39)
+    assert body["scope_reachable"] is True
+
+
+def test_ensure_token_makes_one_and_keeps_it(tmp_path, monkeypatch):
+    monkeypatch.delenv("DWARF3_API_TOKEN", raising=False)
+    monkeypatch.delenv("DWARF3_AUTH", raising=False)
+    path = ensure_token(tmp_path)
+    first = path.read_text()
+    assert len(first) >= 32 and (path.stat().st_mode & 0o777) == 0o600
+    monkeypatch.delenv("DWARF3_API_TOKEN")
+    ensure_token(tmp_path)
+    assert path.read_text() == first
+    monkeypatch.setenv("DWARF3_API_TOKEN", "from-env")
+    assert ensure_token(tmp_path / "other") is None

@@ -634,11 +634,37 @@
           "title": "App Connected",
           "type": "boolean"
         },
+        "battery_percent": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Battery charge, as the scope last reported it.",
+          "title": "Battery Percent"
+        },
         "busy_elsewhere": {
           "default": false,
           "description": "The scope reports a capture that this service did not start.",
           "title": "Busy Elsewhere",
           "type": "boolean"
+        },
+        "device_temperature_c": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Scope body temperature, as last reported.",
+          "title": "Device Temperature C"
         },
         "job": {
           "anyOf": [
@@ -674,6 +700,19 @@
           "default": null,
           "title": "Rotation"
         },
+        "scope_reachable": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The scope answered on its API port at the last probe.",
+          "title": "Scope Reachable"
+        },
         "sd_free_gb": {
           "anyOf": [
             {
@@ -699,6 +738,19 @@
           "default": null,
           "title": "Tele Darks"
         },
+        "tele_sensor_temperature_c": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Tele sensor temperature, as last reported.",
+          "title": "Tele Sensor Temperature C"
+        },
         "wide_darks": {
           "anyOf": [
             {
@@ -710,6 +762,19 @@
           ],
           "default": null,
           "title": "Wide Darks"
+        },
+        "wide_sensor_temperature_c": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Wide sensor temperature, as last reported.",
+          "title": "Wide Sensor Temperature C"
         }
       },
       "required": [
