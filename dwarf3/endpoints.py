@@ -190,8 +190,17 @@ _bearer = HTTPBearer(auto_error=False)
 
 
 def auth_enabled() -> bool:
-    """Control endpoints need a token unless DWARF3_AUTH is off."""
-    return os.environ.get(AUTH_ENV, "on").strip().lower() not in ("off", "0", "false", "no")
+    """Control endpoints need a token only when asked.
+
+    DWARF3_AUTH=on turns it on and DWARF3_AUTH=off turns it off. Unset, auth is off, unless you set
+    DWARF3_API_TOKEN, since a token you set means you want it used.
+    """
+    setting = os.environ.get(AUTH_ENV, "").strip().lower()
+    if setting in ("off", "0", "false", "no"):
+        return False
+    if setting in ("on", "1", "true", "yes"):
+        return True
+    return bool(os.environ.get(TOKEN_ENV))
 
 
 def ensure_token(directory: Path) -> Path | None:
