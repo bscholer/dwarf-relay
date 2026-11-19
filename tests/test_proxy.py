@@ -154,3 +154,47 @@ def test_http_requests_finds_pipelined_requests_and_keeps_a_body_only_for_writes
         {"method": "POST", "path": "/album/delete", "body": '{"path":"/Astronomy/s"}'},
     ]
     assert http_requests(b"\x81\x05binary") == []
+
+
+def test_scope_falls_back_when_the_app_connection_goes_away():
+    """The app leaving mid-command must not fail the command: the Scope reconnects with the relay's own link."""
+    from dwarf3.client import ConnectionLost
+    from dwarf3.scope import Scope
+
+    class Gone:
+        def send(self, module, cmd, data=b""):
+            raise ConnectionLost("no app connection to carry the command")
+
+        def call(self, module, cmd, data=b"", timeout=20.0):
+            raise ConnectionLost("no app connection to carry the command")
+
+        def close(self):
+            pass
+
+    class Own:
+        def __init__(self):
+            self.sent = []
+
+        def send(self, module, cmd, data=b""):
+            self.sent.append((module, cmd, data))
+
+        def call(self, module, cmd, data=b"", timeout=20.0):
+            self.sent.append((module, cmd, data))
+            return [(1, 0)]
+
+        def close(self):
+            pass
+
+    own = Own()
+    scope = Scope("scope", log=lambda *_: None, client=Gone(), reconnect=lambda: own)
+    scope._send(6, 14008, b"x")
+    assert own.sent == [(6, 14008, b"x")]
+    assert scope._call(6, 14011, b"") == [(1, 0)]
+
+
+def test_inject_failure_is_a_lost_connection(tmp_path):
+    from dwarf3.client import ConnectionLost
+
+    relay = Relay("scope", Log(tmp_path / "proxy.jsonl"))
+    with pytest.raises(ConnectionLost):
+        asyncio.run(relay.inject(6, 14008, b""))

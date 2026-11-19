@@ -64,6 +64,24 @@ class Scope:
                 time.sleep(1 + attempt)
                 self.client = self.reconnect()
 
+    def _retry(self, fn):
+        """Run one command. When the connection went away (the app left, say), reconnect and run it again."""
+        for attempt in range(RECONNECTS + 1):
+            try:
+                return fn(self.client)
+            except ConnectionLost as exc:
+                if self.reconnect is None or attempt == RECONNECTS:
+                    raise
+                self.log(f"connection lost ({exc}), reconnecting")
+                time.sleep(attempt)
+                self.client = self.reconnect()
+
+    def _send(self, module: int, cmd: int, data: bytes = b"") -> None:
+        self._retry(lambda client: client.send(module, cmd, data))
+
+    def _call(self, module: int, cmd: int, data: bytes = b"", timeout: float = 20.0):
+        return self._retry(lambda client: client.call(module, cmd, data, timeout=timeout))
+
     def _ok(self, name: str, fields, code_field: int = 1) -> None:
         code = reply_code(fields, code_field)
         if code != 0:
@@ -93,20 +111,20 @@ class Scope:
         self._ok("deep sky tech", c.call(MODULE_DEVICE_CONFIG, 16403, field_int(1, 2)))
 
     def position(self, motor: int) -> float | None:
-        fields = self.client.call(MODULE_MOTOR, 14011, field_int(1, motor), timeout=8)
+        fields = self._call(MODULE_MOTOR, 14011, field_int(1, motor), timeout=8)
         return None if fields is None else dict(fields).get(3)
 
     def move(self, motor: int, position: float, speed: float = 10.0, resolution: int = 3) -> None:
         data = (field_int(1, motor) + field_double(2, position) + field_double(3, speed)
                 + field_int(4, 100) + field_int(5, resolution))
-        self._ok(f"move motor {motor} to {position}", self.client.call(MODULE_MOTOR, 14001, data, timeout=60), 2)
+        self._ok(f"move motor {motor} to {position}", self._call(MODULE_MOTOR, 14001, data, timeout=60), 2)
 
     def home(self) -> None:
-        fields = self.client.call(MODULE_MOTOR, 14003, field_int(1, MOTOR_ROTATION), timeout=120)
+        fields = self._call(MODULE_MOTOR, 14003, field_int(1, MOTOR_ROTATION), timeout=120)
         self.rotation_locked = reply_code(fields, 2) == ROTATION_LOCKED
         if not self.rotation_locked:
             self._ok("reset rotation", fields, 2)
-        self._ok("reset pitch", self.client.call(MODULE_MOTOR, 14003, field_int(1, MOTOR_PITCH) + field_int(2, 1), timeout=120), 2)
+        self._ok("reset pitch", self._call(MODULE_MOTOR, 14003, field_int(1, MOTOR_PITCH) + field_int(2, 1), timeout=120), 2)
 
     def point_up(self) -> None:
         if not self.rotation_locked:
@@ -121,13 +139,13 @@ class Scope:
         self.move(MOTOR_PITCH, PITCH_CLOSED, resolution=2)
 
     def focus_infinity(self) -> None:
-        self._ok("infinity focus", self.client.call(MODULE_FOCUS, 15004, field_int(1, 1), timeout=90))
+        self._ok("infinity focus", self._call(MODULE_FOCUS, 15004, field_int(1, 1), timeout=90))
 
     def autofocus(self) -> None:
-        self._ok("autofocus", self.client.call(MODULE_FOCUS, 15004, timeout=120))
+        self._ok("autofocus", self._call(MODULE_FOCUS, 15004, timeout=120))
 
     def calibrate(self, timeout: float = 420) -> None:
-        self.client.send(MODULE_ASTRO, 11000)
+        self._send(MODULE_ASTRO, 11000)
         end = time.time() + timeout
         while time.time() < end:
             packet = self.client.recv()
@@ -140,7 +158,7 @@ class Scope:
         raise ScopeError(f"calibration timed out, pitch {self.position(MOTOR_PITCH)}")
 
     def goto(self, name: str, ra_hours: float, dec_deg: float, timeout: float = 240) -> None:
-        self.client.send(MODULE_ASTRO, 11002, field_double(1, ra_hours) + field_double(2, dec_deg) + field_bytes(3, name.encode()))
+        self._send(MODULE_ASTRO, 11002, field_double(1, ra_hours) + field_double(2, dec_deg) + field_bytes(3, name.encode()))
         end = time.time() + timeout
         while time.time() < end:
             packet = self.client.recv()
@@ -172,7 +190,7 @@ class Scope:
         started = False
         try:
             before = raw_sessions(album.names(ALBUM_ROOT))
-            self.client.send(MODULE_ASTRO, 11005, field_int(1, FILTERS[filter_name]) + field_int(2, 1))
+            self._send(MODULE_ASTRO, 11005, field_int(1, FILTERS[filter_name]) + field_int(2, 1))
             started = True
             begun = time.time()
             end = begun + 120 + frames * (exposure_s + 15)
@@ -225,12 +243,12 @@ class Scope:
             self.log(f"stop after a failed capture did not finish: {exc}")
 
     def stop_capture(self) -> None:
-        self.client.send(MODULE_ASTRO, 11006)
+        self._send(MODULE_ASTRO, 11006)
         idle = self._wait(NOTIFY_CAPTURE, 60, lambda f: f.get(1, 0) != STATE_RUNNING)
         self.log("capture stop sent" if idle is None else "capture stopped")
 
     def dark_list(self, wide: bool = False) -> list[dict]:
-        fields = self.client.call(MODULE_ASTRO, 11027 if wide else 11023) or []
+        fields = self._call(MODULE_ASTRO, 11027 if wide else 11023) or []
         rows = []
         for field, value in fields:
             if field == 2:
@@ -241,17 +259,17 @@ class Scope:
     def start_dark(self, exposure: str, gain: str, frames: int, wide: bool = False) -> None:
         """Start a dark capture. The scope sends no reply, so watch the dark folder for completion."""
         data = field_int(1, EXPOSURE_INDEX[exposure]) + field_int(2, DARK_GAIN_INDEX[gain]) + field_int(4, frames)
-        self.client.send(MODULE_ASTRO, 11025 if wide else 11021, data)
+        self._send(MODULE_ASTRO, 11025 if wide else 11021, data)
 
     def joystick(self, angle: float, length: float, seconds: float) -> None:
         vector = field_double(1, angle) + field_double(2, length)
         end = time.time() + seconds
         try:
             while time.time() < end:
-                self.client.send(MODULE_MOTOR, JOYSTICK, vector)
+                self._send(MODULE_MOTOR, JOYSTICK, vector)
                 time.sleep(0.05)
         finally:
-            self.client.send(MODULE_MOTOR, JOYSTICK_STOP)
+            self._send(MODULE_MOTOR, JOYSTICK_STOP)
 
     def close(self) -> None:
         self.client.close()
