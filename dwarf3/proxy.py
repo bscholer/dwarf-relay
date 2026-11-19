@@ -407,16 +407,24 @@ def local_ip(upstream: str) -> str:
         return s.getsockname()[0]
 
 
-async def probe_scope(relay: Relay, upstream: str, interval: float = 30.0) -> None:
-    """Track scope reachability on the API port, which holds no control slot."""
+async def probe_scope(relay: Relay, upstream: str, down_interval: float = 2.0, up_interval: float = 10.0) -> None:
+    """Track scope reachability on the API port, which holds no control slot.
+
+    Looks often while the scope is away, so it is noticed within seconds of coming online, and seldom
+    while it is up. It logs only when the answer changes."""
+    up = None
     while True:
         try:
             _, writer = await asyncio.wait_for(asyncio.open_connection(upstream, API_PORT), 5)
             writer.close()
-            relay.metrics.set("scope_up", 1)
+            now = True
         except (OSError, asyncio.TimeoutError):
-            relay.metrics.set("scope_up", 0)
-        await asyncio.sleep(interval)
+            now = False
+        relay.metrics.set("scope_up", 1 if now else 0)
+        if now != up:
+            relay.log.write(event="scope_up" if now else "scope_down")
+            up = now
+        await asyncio.sleep(up_interval if now else down_interval)
 
 
 async def run(upstream: str, listen: str, log_dir: Path, mcp_port: int = 9902) -> None:

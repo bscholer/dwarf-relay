@@ -53,6 +53,12 @@ Each tool is also a REST route under `/api/` on the same port, such as `GET /api
 
 Auth is off by default, like the scope itself, so anyone on your network can control the scope through the relay. To require a token, set `DWARF3_AUTH=on`, or just set `DWARF3_API_TOKEN`. Then every operation except `status` and `capabilities` needs `Authorization: Bearer <token>`, on REST and MCP alike. With `DWARF3_AUTH=on` and no `DWARF3_API_TOKEN`, the relay makes a token on first start and keeps it in `<log-dir>/api-token` (mode 600), then prints the path, not the token. `status` also reports battery, temperatures, SD card size, the capture, tracking, goto, and calibration state codes, and scope reachability, as the scope last sent them. A field is empty until the scope has sent it. Capture and tracking `1` mean running. `capabilities` reports the relay version.
 
+### Live updates
+
+`GET /api/events` is a server-sent event stream for anything that wants to follow the scope without polling. It sends one `status` event as soon as you connect, then another within a quarter of a second of any change in what the relay knows (battery, temperatures, capture, tracking, goto and calibration states, SD card, the app connection, a job, scope reachability). A comment line comes every 15 seconds while nothing changes, so a listener can tell a quiet scope from a dead relay. It sends the same fields as `/api/status`, except the dark counts, and it is open like `status`. It reads only what the relay already holds, so it opens no connection to the scope, and the relay logs nothing for it. Motor positions arrive when `status` last read them. `capabilities` lists `events` when the relay has it.
+
+The relay checks every 2 seconds whether the scope is on while it is away (every 10 while it is on), so it notices the scope coming online within seconds.
+
 ## Metrics and logs
 
 `GET :9902/metrics` serves Prometheus metrics: scope reachability, app connection, battery, SD space, temperatures, capture and calibration state, commands, errors, and traffic. Scope values update only while a client is connected. Stdout has one JSON line for each command or error, with no payloads.

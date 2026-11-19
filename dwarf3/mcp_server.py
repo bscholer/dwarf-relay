@@ -120,6 +120,19 @@ class Service:
             **read_values,
         }
 
+    def live_status(self) -> dict:
+        """What the relay knows right now, without asking the scope. The event stream sends this."""
+        own_job = bool(self.job and self.job["state"] == "running")
+        gauges = getattr(getattr(self.relay, "metrics", None), "gauges", {})
+        return {
+            "app_connected": self.relay.app_link is not None,
+            "busy_elsewhere": bool(self.relay.capture_running) and not own_job,
+            "job": self.job,
+            "sd_free_gb": gauges.get(("sd_free_gigabytes", ())),
+            **self._reported(),
+            **self.positions,
+        }
+
     def _reported(self) -> dict:
         """Values the scope pushes while a client is connected. They hold the last reading."""
         gauges = getattr(getattr(self.relay, "metrics", None), "gauges", {})

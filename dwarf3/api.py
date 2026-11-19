@@ -4,10 +4,12 @@ import contextlib
 from typing import Any
 
 import uvicorn
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Request, Response
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from . import __version__
+from .events import status_events
 from .endpoints import AuthMode, StatusHint, ToolAnnotations, http_endpoint, mcp_tool, mount_endpoints
 from .mcp_server import Service, SunTooCloseError
 
@@ -339,6 +341,16 @@ mount_endpoints(app)
 def metrics() -> Response:
     text = svc().relay.render_metrics()
     return Response(text, headers={"Content-Type": "text/plain; version=0.0.4"})
+
+
+@app.get("/api/events", include_in_schema=False)
+async def events(request: Request) -> StreamingResponse:
+    """Server-sent events. A `status` event on connect and on every change, then a comment every 15 s."""
+    return StreamingResponse(
+        status_events(svc().live_status, request.is_disconnected),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 class _Server(uvicorn.Server):
