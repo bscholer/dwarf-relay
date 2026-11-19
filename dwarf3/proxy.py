@@ -16,6 +16,7 @@ from datetime import datetime
 from pathlib import Path
 
 from . import api
+from .client import ConnectionLost
 from .endpoints import ensure_token
 from .metrics import Metrics, command_name, summary
 from .scope import NOTIFY_CAPTURE, STATE_RUNNING
@@ -301,7 +302,8 @@ class Relay:
     async def inject(self, module: int, cmd: int, data: bytes) -> None:
         link = self.app_link
         if link is None or link.header is None:
-            raise RuntimeError("no app connection to carry the command")
+            # A ConnectionLost, so a Scope reconnects, which picks the relay's own connection now the app has gone.
+            raise ConnectionLost("no app connection to carry the command")
         end = time.monotonic() + INJECT_WAIT_S
         while link.ws.buf:
             if time.monotonic() > end:
