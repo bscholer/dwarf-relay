@@ -12,5 +12,6 @@ CAPABILITY_OPERATIONS = {
     "delete": ["deleteSession"],
     "preview": ["getFrame"],
     "pointing": ["pointScope"],
+    "events": [],  # GET /api/events, a server-sent stream of status changes
 }
 BASE_OPERATIONS = ["getCapabilities"]
