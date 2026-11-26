@@ -45,3 +45,18 @@ def test_scope_error_reply_reaches_stdout_summary():
 def test_mcp_commands_keep_their_source_in_stdout():
     line = summary({"event": "ws", "source": "mcp", "cmd": 11000, "type": None})
     assert line == {"event": "command", "source": "mcp", "command": "calibrate"}
+
+
+def test_control_connections_say_who_they_are_and_who_ended_them():
+    assert summary({"event": "open", "port": 9900, "conn": 7, "peer": "('192.168.1.117', 1)"}) == {
+        "event": "control_open", "conn": 7, "peer": "('192.168.1.117', 1)"}
+    end = {"event": "conn_end", "port": 9900, "conn": 7, "peer": "('192.168.1.117', 1)", "seconds": 2.0,
+           "closed_by": "scope", "app_bytes": 0, "scope_bytes": 40}
+    assert summary(end) == {k: v for k, v in end.items() if k != "port"} | {"event": "control_end"}
+    assert summary({**end, "peer": "('127.0.0.1', 5)"}) is None
+
+
+def test_refused_control_handshake_reaches_stdout_but_not_a_good_one():
+    assert summary({"event": "ws_handshake", "source": "scope", "conn": 3, "text": "HTTP/1.1 101 Switching Protocols\r\nX: y"}) is None
+    line = summary({"event": "ws_handshake", "source": "scope", "conn": 3, "text": "HTTP/1.1 403 Forbidden\r\nSet-Cookie: s"})
+    assert line == {"event": "control_refused", "conn": 3, "status": "HTTP/1.1 403 Forbidden"}

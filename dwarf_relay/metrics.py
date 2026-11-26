@@ -81,9 +81,15 @@ def summary(event: dict) -> dict | None:
     """Pick the event fields for stdout. Payloads stay out, because they hold the site location."""
     kind = event.get("event")
     if kind in ("upstream_failed", "ws_close", "ws_decode_error"):
-        return {k: v for k, v in event.items() if k in ("event", "port", "code", "reason", "error")}
+        return {k: v for k, v in event.items() if k in ("event", "conn", "port", "source", "code", "reason", "error")}
     if kind == "open" and event.get("port") == 9900:
-        return {"event": "control_open", "peer": event.get("peer")}
+        return {"event": "control_open", "conn": event.get("conn"), "peer": event.get("peer")}
+    if kind == "conn_end" and event.get("port") == 9900 and "127.0.0.1" not in str(event.get("peer")):
+        # The app's connections only. The relay's own reconnect every 30 s would drown them.
+        return {k: v for k, v in event.items() if k in ("conn", "peer", "seconds", "closed_by", "app_bytes", "scope_bytes")} | {"event": "control_end"}
+    if kind == "ws_handshake" and event.get("source") == "scope" and not event.get("text", "").startswith("HTTP/1.1 101"):
+        # The scope's answer to a control connection it did not accept. Only the status line, no headers.
+        return {"event": "control_refused", "conn": event.get("conn"), "status": event["text"].split("\r\n", 1)[0]}
     is_command = kind == "inject" or (kind == "ws" and event.get("source") in ("app", "mcp") and not event.get("type"))
     if is_command and event.get("cmd") not in QUIET_COMMANDS:
         return {"event": "command", "source": event.get("source", "inject"), "command": command_name(event.get("cmd"))}

@@ -230,13 +230,18 @@ class Relay:
             self.log.write(event="upstream_failed", conn=conn, port=port, error=str(exc))
             writer.close()
             return
+        started = time.monotonic()
+        totals: dict[str, int] = {}
         await asyncio.gather(
-            self._pump(conn, port, "app", reader, up_writer, local=bool(peer) and peer[0] == "127.0.0.1"),
-            self._pump(conn, port, "scope", up_reader, writer),
+            self._pump(conn, port, "app", reader, up_writer, local=bool(peer) and peer[0] == "127.0.0.1", totals=totals),
+            self._pump(conn, port, "scope", up_reader, writer, totals=totals),
             return_exceptions=True,
         )
+        self.log.write(event="conn_end", conn=conn, port=port, peer=str(peer), seconds=round(time.monotonic() - started, 1),
+                       closed_by=totals.get("first"), app_bytes=totals.get("app", 0), scope_bytes=totals.get("scope", 0))
 
-    async def _pump(self, conn: int, port: int, source: str, reader, writer, local: bool = False) -> None:
+    async def _pump(self, conn: int, port: int, source: str, reader, writer, local: bool = False,
+                    totals: dict | None = None) -> None:
         ws = WsStream() if port == CONTROL_PORT else None
         api = bytearray() if port == API_PORT else None
         link = AppLink(conn, ws, writer, local) if ws is not None and source == "app" else None
@@ -260,6 +265,9 @@ class Relay:
         except (ConnectionError, asyncio.CancelledError):
             pass
         finally:
+            if totals is not None:
+                totals.setdefault("first", source)  # Whichever side stopped sending first.
+                totals[source] = total
             if source == "scope" and port == CONTROL_PORT:
                 self.capture_running = False
             if link and self.app_link is link:
