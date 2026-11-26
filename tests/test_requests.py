@@ -60,3 +60,9 @@ def test_prepare_mode_requests():
         (14, 16404, [(3, b"\x08\x01")]),
         (14, 16403, [(1, 2)]),
     ]
+
+
+def test_focus_requests():
+    # Mode 1 is fast (calibrate's infinity focus); mode 0, the protobuf default, the slow star sweep.
+    assert sent_by(lambda s: s.focus_infinity()) == [(8, 15004, [(1, 1)])]
+    assert sent_by(lambda s: s.autofocus()) == [(8, 15004, [])]

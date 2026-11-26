@@ -287,6 +287,10 @@ class Service:
         self._with_scope(run)
         return "calibrated"
 
+    def autofocus(self) -> str:
+        self._with_scope(lambda s: s.autofocus())
+        return "focused"
+
     def goto(self, name: str, ra_hours: float, dec_degrees: float) -> str:
         require_safe_target(ra_hours, dec_degrees)
         self._with_scope(lambda s: s.goto(name, ra_hours, dec_degrees))

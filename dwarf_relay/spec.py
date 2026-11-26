@@ -5,6 +5,7 @@ SPEC_VERSION = "0.2"
 CAPABILITY_OPERATIONS = {
     "status": ["getStatus"],
     "setup": ["prepareScope", "calibrateScope"],
+    "focus": ["autofocusScope"],
     "goto": ["gotoTarget"],
     "capture": ["startCapture", "stopCapture"],
     "darks": ["listDarks", "startDark"],

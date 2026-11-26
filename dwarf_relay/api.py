@@ -298,6 +298,17 @@ def calibrate() -> Message:
     return Message(message=svc().calibrate())
 
 
+@mcp_tool(name="autofocus", title="Autofocus on stars",
+          description="Run the scope's star-based autofocus where it points now. Needs stars in view; "
+                      "takes a minute or two.",
+          annotations=acts(idempotent_hint=True), error_map=TOOL_ERRORS)
+@http_endpoint(path="/api/autofocus", operation_id="autofocusScope", method="POST", response_model=Message,
+               description="Run the scope's star-based autofocus where it points now. Needs stars in view.",
+               tags=["Scope"], error_map=CONTROL_ERRORS)
+def autofocus() -> Message:
+    return Message(message=svc().autofocus())
+
+
 @mcp_tool(name="goto", title="Slew to a target",
           description="Slew to a target and track it. Refuses a target near the Sun.",
           annotations=acts(idempotent_hint=True), error_map=TOOL_ERRORS)

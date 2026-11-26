@@ -709,6 +709,73 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/autofocus": {
+      "post": {
+        "description": "Run the scope's star-based autofocus where it points now. Needs stars in view.",
+        "operationId": "autofocusScope",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "busy"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "invalid_request, sun_too_close"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "scope_error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Autofocusscope",
+        "tags": [
+          "Scope"
+        ]
+      }
+    },
     "/api/calibrate": {
       "post": {
         "description": "Focus at infinity and plate solve. Needs a clear view of stars.",
