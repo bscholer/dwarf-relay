@@ -5,7 +5,8 @@ import struct
 import pytest
 
 from dwarf3.proxy import AppLink, Log, Relay, WsStream, decode_packet, http_requests, redact, rename
-from dwarf3.wire import field_bytes, field_int, parse
+from dwarf3.protocol import base
+from dwarf3.wire import parse
 
 HANDSHAKE = b"GET /?client_id=x HTTP/1.1\r\nUpgrade: websocket\r\n\r\n"
 
@@ -33,7 +34,7 @@ def test_ws_stream_decodes_masked_extended_frames_split_at_every_byte():
 
 
 def test_decode_packet_keeps_undecodable_body_as_hex():
-    packet = field_int(4, 3) + field_int(5, 11005) + field_int(6, 3) + field_bytes(7, b"\xff") + field_bytes(8, b"id")
+    packet = base.WsPacket(module_id=3, cmd=11005, type=3, data=b"\xff", client_id="id").SerializeToString()
     decoded = decode_packet(packet)
     assert (decoded["module"], decoded["cmd"], decoded["data"]) == (3, 11005, "ff")
     assert "fields" not in decoded
@@ -47,9 +48,9 @@ def test_redact_removes_scope_credentials_and_keeps_other_values():
 
 
 def test_relay_passes_bytes_unchanged_and_logs_control_traffic(tmp_path):
-    packet = field_int(4, 6) + field_int(5, 14011) + field_int(6, 0)
+    packet = base.WsPacket(module_id=6, cmd=14011, type=0).SerializeToString()
     request = HANDSHAKE + frame(packet, mask=True)
-    reply = b"HTTP/1.1 101 Switching\r\n\r\n" + frame(field_int(5, 14011) + field_int(6, 3))
+    reply = b"HTTP/1.1 101 Switching\r\n\r\n" + frame(base.WsPacket(cmd=14011, type=3).SerializeToString())
 
     async def scenario():
         seen = []
@@ -140,8 +141,8 @@ def test_inject_fails_with_no_app_connection(tmp_path):
 
 
 def test_rename_keeps_protobuf_length_prefix_valid():
-    reply = field_bytes(8, b"DWARF3_57D0EC") + field_int(9, 1)
-    assert parse(rename(reply)) == [(8, b"DWARF3_RELAY1"), (9, 1)]
+    reply = base.WsPacket(cmd=13500, client_id="DWARF3_57D0EC").SerializeToString()
+    assert parse(rename(reply)) == [(5, 13500), (8, b"DWARF3_RELAY1")]
 
 
 def test_http_requests_finds_pipelined_requests_and_keeps_a_body_only_for_writes():

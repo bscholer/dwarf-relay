@@ -2,7 +2,7 @@
 
 Command-line control for a DWARF 3 smart telescope on the local network. Goal: keep the scope outside on power, set a target, capture darks, and copy files.
 
-Tested on firmware 1.5.4. This client speaks the scope WebSocket protocol directly. See [docs/protocol.md](docs/protocol.md).
+Tested on firmware 1.5.4. This client speaks the scope WebSocket protocol directly, with message types and command numbers from [dwarf_python_api](https://github.com/stevejcl/dwarf_python_api). See [docs/protocol.md](docs/protocol.md).
 
 ## Install
 

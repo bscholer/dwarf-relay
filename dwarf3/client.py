@@ -5,10 +5,12 @@ import uuid
 
 import websocket
 
-from .wire import field_bytes, field_int, parse
+from .protocol import CMD, base
+from .wire import parse
 
 PORT = 9900
-TYPE_REQUEST = 0
+TYPE_REQUEST = CMD.TYPE_REQUEST
+MAJOR_VERSION, MINOR_VERSION, DEVICE_ID = 1, 7, 2  # The header the app sends to a DWARF 3.
 CLOSE_DEVICE_OCCUPIED = 4409
 
 
@@ -28,11 +30,11 @@ class Client:
         self._last_ping = 0.0
 
     def send(self, module: int, cmd: int, data: bytes = b"") -> None:
-        self.ws.send_binary(
-            field_int(1, 1) + field_int(2, 7) + field_int(3, 2) + field_int(4, module)
-            + field_int(5, cmd) + field_int(6, TYPE_REQUEST) + field_bytes(7, data)
-            + field_bytes(8, self.client_id.encode())
+        packet = base.WsPacket(
+            major_version=MAJOR_VERSION, minor_version=MINOR_VERSION, device_id=DEVICE_ID,
+            module_id=module, cmd=cmd, type=TYPE_REQUEST, data=data, client_id=self.client_id,
         )
+        self.ws.send_binary(packet.SerializeToString())
 
     def recv(self):
         """Return (cmd, type, fields) for one packet, or None on idle."""
@@ -56,7 +58,7 @@ class Client:
         fields = parse(packet.get(7, b""))
         cmd = packet.get(5)
         self.last[cmd] = fields
-        return cmd, packet.get(6), fields
+        return cmd, packet.get(6, TYPE_REQUEST), fields  # protobuf leaves out a zero type
 
     def call(self, module: int, cmd: int, data: bytes = b"", timeout: float = 20.0):
         """Send a request and return the fields of its reply, or None on timeout."""

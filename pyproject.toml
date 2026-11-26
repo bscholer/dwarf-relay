@@ -1,9 +1,18 @@
 [project]
 name = "dwarf3-control"
-version = "0.5.0"
+version = "0.6.0"
 description = "Command-line control for a DWARF 3 smart telescope"
 requires-python = ">=3.11"
-dependencies = ["websocket-client>=1.8", "fastapi>=0.115", "uvicorn>=0.30", "pydantic>=2.7"]
+dependencies = [
+    "websocket-client>=1.8",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "pydantic>=2.7",
+    # The DWARF message definitions. The library declares no dependencies of its own; its
+    # generated protobuf modules need this runtime. A release tarball, so the image needs no git.
+    "dwarf_python_api @ https://github.com/stevejcl/dwarf_python_api/archive/refs/tags/v3.1.8.tar.gz",
+    "protobuf>=7.35.1",
+]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "httpx>=0.27"]
