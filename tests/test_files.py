@@ -1,6 +1,6 @@
 import json
 
-from dwarf3.files import count_frames, raw_sessions
+from dwarf_relay.files import count_frames, raw_sessions
 
 
 def test_count_includes_rejected_frames_and_excludes_stack_outputs():
@@ -20,7 +20,7 @@ def test_raw_sessions_ignore_other_album_folders():
 
 
 def test_count_frames_accepts_tiff_frames_and_skips_stacks_and_images():
-    from dwarf3.files import count_frames
+    from dwarf_relay.files import count_frames
 
     names = ["a_22C.tif", "b.fits", "failed_c.fits", "stacked-16_x.fits", "dark_1.fits", "stacked.jpg", "img_reference.png", "shotsInfo.json"]
     assert count_frames(names) == 3
@@ -41,7 +41,7 @@ def _fake_urlopen(reply, seen):
 
 
 def test_delete_session_sends_the_entry_the_app_sends_and_reads_the_result():
-    from dwarf3.files import delete_session
+    from dwarf_relay.files import delete_session
 
     seen = []
     ok = {"code": 0, "data": [{"isSuccess": True}]}
@@ -65,7 +65,7 @@ def test_delete_session_sends_the_entry_the_app_sends_and_reads_the_result():
 def test_delete_session_refuses_names_that_could_reach_outside_a_raw_session():
     import pytest
 
-    from dwarf3.files import delete_session
+    from dwarf_relay.files import delete_session
 
     for bad in ("../Normal_Photos", "DWARF_RAW_x/../../y", "Videos", "DWARF_RAW_a/b", ""):
         with pytest.raises(ValueError):
@@ -73,7 +73,7 @@ def test_delete_session_refuses_names_that_could_reach_outside_a_raw_session():
 
 
 def test_sd_free_gb_reads_device_info_and_gives_none_when_the_scope_is_silent():
-    from dwarf3.files import sd_free_gb
+    from dwarf_relay.files import sd_free_gb
 
     card = {"code": 0, "data": {"sdCardInfo": {"availableSize": 89, "hasSdcard": True, "totalSize": 104}}}
     assert sd_free_gb("scope", _fake_urlopen(card, [])) == 89.0

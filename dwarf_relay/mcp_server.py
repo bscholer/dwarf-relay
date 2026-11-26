@@ -13,7 +13,7 @@ from .files import Album, delete_session, sd_free_gb
 from .spec import CAPABILITY_OPERATIONS, SPEC_VERSION
 from .scope import ALBUM_ROOT, EXPOSURE_INDEX, FILTERS, MOTOR_PITCH, MOTOR_ROTATION, Scope
 
-log = logging.getLogger("dwarf3.service")
+log = logging.getLogger("dwarf_relay.service")
 
 MIN_SUN_SEPARATION_DEG = 30.0
 MAX_MOVE_SECONDS = 5.0
@@ -96,7 +96,7 @@ class Service:
             self.lock.release()
 
     def capabilities(self) -> dict:
-        return {"spec_version": SPEC_VERSION, "service": {"name": "dwarf3-relay", "vendor": "DWARFLAB", "model": "DWARF 3", "version": __version__},
+        return {"spec_version": SPEC_VERSION, "service": {"name": "dwarf-relay", "vendor": "DWARFLAB", "model": "DWARF 3", "version": __version__},
                 "capabilities": sorted(CAPABILITY_OPERATIONS)}
 
     def status(self) -> dict:

@@ -4,9 +4,9 @@ import struct
 
 import pytest
 
-from dwarf3.proxy import AppLink, Log, Relay, WsStream, decode_packet, http_requests, redact, rename
-from dwarf3.protocol import base
-from dwarf3.wire import parse
+from dwarf_relay.proxy import AppLink, Log, Relay, WsStream, decode_packet, http_requests, redact, rename
+from dwarf_relay.protocol import base
+from dwarf_relay.wire import parse
 
 HANDSHAKE = b"GET /?client_id=x HTTP/1.1\r\nUpgrade: websocket\r\n\r\n"
 
@@ -159,8 +159,8 @@ def test_http_requests_finds_pipelined_requests_and_keeps_a_body_only_for_writes
 
 def test_scope_falls_back_when_the_app_connection_goes_away():
     """The app leaving mid-command must not fail the command: the Scope reconnects with the relay's own link."""
-    from dwarf3.client import ConnectionLost
-    from dwarf3.scope import Scope
+    from dwarf_relay.client import ConnectionLost
+    from dwarf_relay.scope import Scope
 
     class Gone:
         def send(self, module, cmd, data=b""):
@@ -194,7 +194,7 @@ def test_scope_falls_back_when_the_app_connection_goes_away():
 
 
 def test_inject_failure_is_a_lost_connection(tmp_path):
-    from dwarf3.client import ConnectionLost
+    from dwarf_relay.client import ConnectionLost
 
     relay = Relay("scope", Log(tmp_path / "proxy.jsonl"))
     with pytest.raises(ConnectionLost):

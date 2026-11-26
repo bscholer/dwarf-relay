@@ -1,4 +1,4 @@
-from dwarf3.metrics import Metrics, summary
+from dwarf_relay.metrics import Metrics, summary
 
 
 def test_sensor_temperature_splits_by_camera_and_missing_field_means_tele():

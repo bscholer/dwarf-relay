@@ -1,6 +1,6 @@
 """Requests keep the field layout found by live tests, whatever dwarf_python_api version is installed."""
-from dwarf3.scope import Scope
-from dwarf3.wire import parse
+from dwarf_relay.scope import Scope
+from dwarf_relay.wire import parse
 
 
 class Recorder:
