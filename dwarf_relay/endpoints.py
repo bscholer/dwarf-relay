@@ -27,7 +27,7 @@ from fastapi.responses import JSONResponse, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-log = logging.getLogger("dwarf3.endpoints")
+log = logging.getLogger("dwarf_relay.endpoints")
 
 TOKEN_ENV = "DWARF3_API_TOKEN"
 AUTH_ENV = "DWARF3_AUTH"
@@ -382,7 +382,7 @@ async def _mcp_endpoint(request: Request) -> Response:
         result: dict[str, Any] = {
             "protocolVersion": MCP_PROTOCOL_VERSION,
             "capabilities": {"tools": {"listChanged": False}},
-            "serverInfo": {"name": "dwarf3", "version": request.app.version},
+            "serverInfo": {"name": "dwarf-relay", "version": request.app.version},
         }
     elif method == "ping":
         result = {}

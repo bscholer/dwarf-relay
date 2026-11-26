@@ -3,9 +3,9 @@ import datetime as dt
 import pytest
 from fastapi.testclient import TestClient
 
-from dwarf3 import api
-from dwarf3.endpoints import ensure_token, tool_manifest
-from dwarf3.mcp_server import Service, require_safe_target, sun_position
+from dwarf_relay import api
+from dwarf_relay.endpoints import ensure_token, tool_manifest
+from dwarf_relay.mcp_server import Service, require_safe_target, sun_position
 from scripts.conformance import check
 from scripts.export_spec import DOCS, generated
 
@@ -146,7 +146,7 @@ def test_auth_off_lets_control_through(anon, monkeypatch):
 
 
 def test_status_reports_battery_and_temperatures(client, svc, monkeypatch):
-    from dwarf3.metrics import Metrics
+    from dwarf_relay.metrics import Metrics
 
     m = Metrics()
     m.observe("scope", 15201, 2, [(1, 87)])
@@ -185,7 +185,7 @@ def test_ensure_token_makes_one_and_keeps_it(tmp_path, monkeypatch):
 
 
 def test_capabilities_report_the_service_version(anon):
-    from dwarf3 import __version__
+    from dwarf_relay import __version__
 
     assert anon.get("/api/capabilities").json()["service"]["version"] == __version__
 

@@ -1,6 +1,6 @@
 import pytest
 
-from dwarf3.scope import NOTIFY_TRACKING, Scope, ScopeError
+from dwarf_relay.scope import NOTIFY_TRACKING, Scope, ScopeError
 
 
 class FakeClient:
@@ -26,7 +26,7 @@ def test_goto_returns_when_tracking_starts():
 
 
 def test_prepare_skips_rotation_motor_when_the_firmware_locks_it():
-    from dwarf3.scope import MOTOR_ROTATION
+    from dwarf_relay.scope import MOTOR_ROTATION
 
     class Client:
         def __init__(self):

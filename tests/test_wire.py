@@ -1,5 +1,5 @@
-from dwarf3.protocol import astro, base, param
-from dwarf3.wire import parse
+from dwarf_relay.protocol import astro, base, param
+from dwarf_relay.wire import parse
 
 
 def test_negative_codes_survive_round_trip():

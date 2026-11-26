@@ -2,8 +2,8 @@
 
 from types import SimpleNamespace
 
-from dwarf3.mcp_server import Service
-from dwarf3.proxy import Relay
+from dwarf_relay.mcp_server import Service
+from dwarf_relay.proxy import Relay
 
 
 def _relay():

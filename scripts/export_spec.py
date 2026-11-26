@@ -4,8 +4,8 @@ import json
 import sys
 from pathlib import Path
 
-from dwarf3.api import app
-from dwarf3.endpoints import tool_manifest
+from dwarf_relay.api import app
+from dwarf_relay.endpoints import tool_manifest
 
 DOCS = Path(__file__).resolve().parent.parent / "docs"
 

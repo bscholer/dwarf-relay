@@ -1,6 +1,6 @@
 import pytest
 
-from dwarf3.mcp_server import album_path
+from dwarf_relay.mcp_server import album_path
 
 
 def test_album_path_stays_inside_the_album():

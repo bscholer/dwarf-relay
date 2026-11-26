@@ -4,10 +4,10 @@ import asyncio
 import json
 from types import SimpleNamespace
 
-from dwarf3 import proxy
-from dwarf3.events import status_events
-from dwarf3.mcp_server import Service
-from dwarf3.proxy import Relay
+from dwarf_relay import proxy
+from dwarf_relay.events import status_events
+from dwarf_relay.mcp_server import Service
+from dwarf_relay.proxy import Relay
 
 
 def _collect(read, steps, tick=0.0, keepalive=1.0):

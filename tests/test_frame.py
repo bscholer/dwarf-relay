@@ -4,7 +4,7 @@ import subprocess
 
 import pytest
 
-from dwarf3 import frame
+from dwarf_relay import frame
 
 
 def test_unknown_camera_is_rejected():

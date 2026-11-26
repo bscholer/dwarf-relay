@@ -89,7 +89,7 @@ def cmd_nudge(args):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="dwarf3")
+    parser = argparse.ArgumentParser(prog="dwarf-relay")
     parser.add_argument("--host", default=os.environ.get("DWARF3_HOST"))
     sub = parser.add_subparsers(dest="command", required=True)
 

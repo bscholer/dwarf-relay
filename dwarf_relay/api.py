@@ -333,7 +333,7 @@ def start_dark(p: DarkIn) -> Message:
     return Message(message=svc().start_dark(p.frames, p.exposure, p.wide))
 
 
-app = FastAPI(title="dwarf3 relay", version=__version__)
+app = FastAPI(title="DWARF relay", version=__version__)
 mount_endpoints(app)
 
 

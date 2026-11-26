@@ -1,5 +1,5 @@
-from dwarf3 import scope as scope_module
-from dwarf3.scope import Scope
+from dwarf_relay import scope as scope_module
+from dwarf_relay.scope import Scope
 
 
 class FakeClient:
@@ -101,7 +101,7 @@ def test_refused_start_with_no_session_fails_with_the_code_and_stops_the_scope(m
 
 
 def test_capture_reconnects_after_the_scope_drops_the_link(monkeypatch):
-    from dwarf3.client import ConnectionLost
+    from dwarf_relay.client import ConnectionLost
 
     class Dropping:
         sent = []
@@ -126,7 +126,7 @@ def test_capture_reconnects_after_the_scope_drops_the_link(monkeypatch):
 def test_capture_that_loses_the_link_for_good_still_tries_to_stop_the_scope(monkeypatch):
     import pytest
 
-    from dwarf3.client import ConnectionLost
+    from dwarf_relay.client import ConnectionLost
 
     class Dead:
         sent = []

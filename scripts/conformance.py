@@ -3,7 +3,7 @@ import json
 import sys
 import urllib.request
 
-from dwarf3.spec import BASE_OPERATIONS, CAPABILITY_OPERATIONS, SPEC_VERSION
+from dwarf_relay.spec import BASE_OPERATIONS, CAPABILITY_OPERATIONS, SPEC_VERSION
 
 
 def check(get_json) -> list[str]:
