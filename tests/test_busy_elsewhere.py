@@ -35,7 +35,7 @@ def _service(relay, job=None):
 
 
 def test_status_flags_a_foreign_capture_but_not_our_own():
-    relay = SimpleNamespace(app_link=None, capture_running=True)
+    relay = SimpleNamespace(app_link=None, app_connected=False, capture_running=True)
     assert _service(relay).status()["busy_elsewhere"] is True
     own = {"state": "running"}
     assert _service(relay, own).status()["busy_elsewhere"] is False
@@ -46,7 +46,7 @@ def test_status_flags_a_foreign_capture_but_not_our_own():
 def test_point_refuses_while_another_capture_runs_and_checks_ranges():
     import pytest
 
-    relay = SimpleNamespace(app_link=None, capture_running=True)
+    relay = SimpleNamespace(app_link=None, app_connected=False, capture_running=True)
     svc = _service(relay)
     with pytest.raises(RuntimeError, match="busy"):
         svc.point(90.0, 100.0)
@@ -86,7 +86,7 @@ def test_capture_progress_marks_a_capture_the_relay_never_saw_start_and_it_expir
 
 
 def test_status_during_our_capture_opens_no_second_connection():
-    relay = SimpleNamespace(app_link=None, capture_running=True)
+    relay = SimpleNamespace(app_link=None, app_connected=False, capture_running=True)
     svc = Service(relay, "127.0.0.1", loop=None)
     svc.positions = {"rotation": 158.0, "pitch": 150.0}
     svc.job = {"state": "running"}
@@ -101,7 +101,7 @@ def test_status_during_our_capture_opens_no_second_connection():
 
 
 def test_stop_job_stops_a_capture_that_no_job_owns():
-    relay = SimpleNamespace(app_link=None, capture_running=True)
+    relay = SimpleNamespace(app_link=None, app_connected=False, capture_running=True)
     svc = Service(relay, "127.0.0.1", loop=None)
     stopped = []
     svc._with_scope = lambda fn: fn(SimpleNamespace(stop_capture=lambda: stopped.append(1)))
@@ -124,7 +124,7 @@ def test_start_capture_waits_for_a_short_status_read_instead_of_failing():
 def test_delete_session_is_refused_while_any_capture_runs_and_reports_a_missing_session():
     import pytest
 
-    relay = SimpleNamespace(app_link=None, capture_running=True)
+    relay = SimpleNamespace(app_link=None, app_connected=False, capture_running=True)
     svc = Service(relay, "127.0.0.1", loop=None)
     with pytest.raises(RuntimeError, match="capture is running"):
         svc.delete_session("DWARF_RAW_x")

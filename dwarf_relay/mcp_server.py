@@ -147,7 +147,7 @@ class Service:
             read_values = self._with_scope(read)
             self.positions = {k: v for k, v in read_values.items() if k in ("rotation", "pitch")}
         return {
-            "app_connected": self.relay.app_link is not None,
+            "app_connected": self.relay.app_connected,
             "busy_elsewhere": bool(self.relay.capture_running) and not own_job,
             "job": self.job,
             "sd_free_gb": self._sd_free_gb(),
@@ -160,7 +160,7 @@ class Service:
         own_job = bool(self.job and self.job["state"] == "running")
         gauges = getattr(getattr(self.relay, "metrics", None), "gauges", {})
         return {
-            "app_connected": self.relay.app_link is not None,
+            "app_connected": self.relay.app_connected,
             "busy_elsewhere": bool(self.relay.capture_running) and not own_job,
             "job": self.job,
             "sd_free_gb": gauges.get(("sd_free_gigabytes", ())),

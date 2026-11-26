@@ -129,7 +129,7 @@ def test_capabilities_report_the_detected_model_and_its_choices():
 
     from dwarf_relay.mcp_server import Service
 
-    service = Service(SimpleNamespace(app_link=None, capture_running=False), "127.0.0.1", loop=None)
+    service = Service(SimpleNamespace(app_link=None, app_connected=False, capture_running=False), "127.0.0.1", loop=None)
     assert service.capabilities()["service"]["model"] == "DWARF 3", "before the scope answers"
     service._note_device_info({"deviceId": 4, "deviceName": "DWARF_mini_1A2B3C"})
     caps = service.capabilities()

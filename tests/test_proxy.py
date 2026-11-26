@@ -219,3 +219,16 @@ def test_log_full_off_prints_only_the_summary(tmp_path, capsys):
     log = Log(tmp_path / "proxy.jsonl", full=False)
     log.write(event="ws", conn=1, source="app", cmd=13010, type=None, fields=[], data="ff")
     assert json.loads(capsys.readouterr().out) == {"event": "command", "source": "app", "command": "13010"}
+
+
+def test_a_local_connection_never_displaces_the_app(tmp_path):
+    relay = Relay("scope", Log(tmp_path / "proxy.jsonl", full=False))
+    app, poll = AppLink(1, WsStream(), None), AppLink(2, WsStream(), None, local=True)
+    relay.claim_app_link(poll)
+    assert relay.app_link is poll and not relay.app_connected  # A poll alone is not the app.
+    relay.claim_app_link(app)
+    assert relay.app_link is app and relay.app_connected
+    relay.claim_app_link(poll)
+    assert relay.app_link is app and relay.app_connected  # The app stays through each poll.
+    relay.claim_app_link(AppLink(3, WsStream(), None, local=True))
+    assert relay.app_link is app

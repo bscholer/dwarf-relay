@@ -234,9 +234,19 @@ class Relay:
             self._capture_seen = self.clock()
 
     def render_metrics(self) -> str:
-        link = self.app_link
-        self.metrics.set("app_connected", 1 if link and not link.local else 0)
+        self.metrics.set("app_connected", 1 if self.app_connected else 0)
         return self.metrics.render()
+
+    def claim_app_link(self, link: AppLink) -> None:
+        """Make this the live connection. A local one (the relay's own client) never displaces the app's."""
+        current = self.app_link
+        if not link.local or current is None or current.local:
+            self.app_link = link
+
+    @property
+    def app_connected(self) -> bool:
+        """True while the DWARFLAB app, not a local tool, holds a control connection."""
+        return self.app_link is not None and not self.app_link.local
 
     def _upstream_port(self, port: int) -> int:
         return port
@@ -276,7 +286,7 @@ class Relay:
         link = AppLink(conn, ws, writer, local) if ws is not None and source == "app" else None
         total = 0
         if link:
-            self.app_link = link
+            self.claim_app_link(link)
         try:
             while chunk := await reader.read(65536):
                 # Decode before the write, so ws.buf shows a partial frame at each await.
