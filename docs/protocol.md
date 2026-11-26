@@ -1,6 +1,6 @@
 # DWARF 3 protocol notes
 
-Results from live tests on firmware 1.5.4, on 2026-11-05. Message formats come from the proto files in [dwarf_python_api](https://github.com/stevejcl/dwarf_python_api). The library was read, not run.
+Results from live tests on firmware 1.5.4, on 2026-11-05. Message formats come from the proto files in [dwarf_python_api](https://github.com/stevejcl/dwarf_python_api), which the relay depends on for its message types and command numbers (`dwarf3/protocol.py`).
 
 ## Ports
 

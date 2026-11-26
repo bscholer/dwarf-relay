@@ -1,29 +1,9 @@
-"""Minimal protobuf encoder and decoder for the DWARF WebSocket packets."""
+"""Schema-free protobuf decoder for DWARF packets.
+
+The relay logs and watches every packet, including ones it has no message type for, so it
+decodes by field number here. Requests are built from the typed messages in protocol.py.
+"""
 import struct
-
-
-def varint(n: int) -> bytes:
-    if n < 0:
-        n += 1 << 64
-    out = bytearray()
-    while True:
-        b = n & 0x7F
-        n >>= 7
-        out.append(b | (0x80 if n else 0))
-        if not n:
-            return bytes(out)
-
-
-def field_int(num: int, value: int) -> bytes:
-    return varint(num << 3) + varint(value)
-
-
-def field_bytes(num: int, value: bytes) -> bytes:
-    return varint(num << 3 | 2) + varint(len(value)) + value
-
-
-def field_double(num: int, value: float) -> bytes:
-    return varint(num << 3 | 1) + struct.pack("<d", value)
 
 
 def parse(buf: bytes) -> list[tuple[int, object]]:

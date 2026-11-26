@@ -3,13 +3,17 @@ import time
 
 from .client import Client, ConnectionLost
 from .files import Album, count_failed, count_frames, raw_sessions
-from .wire import field_bytes, field_double, field_int, parse
+from .protocol import CMD, astro, focus, motor, param, system, task_center
+from .wire import parse
 
-MODULE_ASTRO, MODULE_SYSTEM, MODULE_MOTOR, MODULE_FOCUS = 3, 4, 6, 8
-MODULE_DEVICE_CONFIG, MODULE_PARAMS = 14, 15
+MODULE_ASTRO, MODULE_SYSTEM, MODULE_MOTOR = CMD.MODULE_ASTRO, CMD.MODULE_SYSTEM, CMD.MODULE_MOTOR
+MODULE_FOCUS, MODULE_DEVICE_CONFIG, MODULE_PARAMS = CMD.MODULE_FOCUS, CMD.MODULE_DEVICE_CONFIG, CMD.MODULE_CAMERA_PARAMS
 
 MOTOR_ROTATION, MOTOR_PITCH = 1, 2
-JOYSTICK, JOYSTICK_STOP = 14006, 14008
+CALIBRATE, GOTO, CAPTURE_START = CMD.CMD_ASTRO_START_CALIBRATION, CMD.CMD_ASTRO_START_GOTO_DSO, CMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING
+AUTOFOCUS = CMD.CMD_FOCUS_START_ASTRO_AUTO_FOCUS
+JOYSTICK, JOYSTICK_STOP = CMD.CMD_STEP_MOTOR_SERVICE_JOYSTICK, CMD.CMD_STEP_MOTOR_SERVICE_JOYSTICK_STOP
+SHOOTING_MODE_ASTRO, SHOOTING_TECH_DEEP_SKY, ENCODE_TYPE = 2, 2, 1
 PITCH_CLOSED = 0.0
 PITCH_ZENITH = 172.5  # Set by eye on a tripod. The polar value 169 is about 3 degrees short.
 PITCH_TOLERANCE = 8.0  # A pitch further from zenith than this after point_up means the scope did not get there.
@@ -27,13 +31,17 @@ EXPOSURE_INDEX = {"15": 156, "30": 159, "60": 162}
 DARK_GAIN_INDEX = {"60": 18}
 
 STATE_RUNNING = 1
-NOTIFY_CALIBRATION = 15210
-NOTIFY_CAPTURE = 15208
-NOTIFY_TRACKING = 15212
+NOTIFY_CALIBRATION = CMD.CMD_NOTIFY_STATE_ASTRO_CALIBRATION
+NOTIFY_CAPTURE = CMD.CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING
+NOTIFY_TRACKING = CMD.CMD_NOTIFY_STATE_ASTRO_TRACKING
 ALBUM_ROOT = "/Astronomy"
 END_GRACE_S = 10  # A stop notice this soon after the start belongs to the start, not the end.
 START_GRACE_S = 30  # A start the scope refuses must show a session folder within this time.
 RECONNECTS = 3
+
+
+def encode(message) -> bytes:
+    return message.SerializeToString()
 
 
 class ScopeError(RuntimeError):
@@ -98,33 +106,39 @@ class Scope:
 
     def prepare(self, lat: float, lon: float, utc_offset: float, timezone: str) -> None:
         c = self.client
-        self._ok("set time", c.call(MODULE_SYSTEM, 13000, field_int(1, int(time.time())) + field_double(2, utc_offset)))
-        self._ok("set timezone", c.call(MODULE_SYSTEM, 13001, field_bytes(1, timezone.encode())))
-        self._ok("set location", c.call(MODULE_SYSTEM, 13010, field_double(1, lat) + field_double(2, lon)))
-        c.call(MODULE_ASTRO, 11010)
-        mode = c.call(MODULE_DEVICE_CONFIG, 16402, field_int(1, 2))
+        self._ok("set time", c.call(MODULE_SYSTEM, CMD.CMD_SYSTEM_SET_TIME, encode(system.ReqSetTime(timestamp=int(time.time()), timezone_offset=utc_offset))))
+        self._ok("set timezone", c.call(MODULE_SYSTEM, CMD.CMD_SYSTEM_SET_TIME_ZONE, encode(system.ReqSetTimezone(timezone=timezone))))
+        self._ok("set location", c.call(MODULE_SYSTEM, CMD.CMD_V3_SYSTEM_SET_GPS_LOCATION, encode(system.ReqSetLocation(latitude=lat, longitude=lon))))
+        c.call(MODULE_ASTRO, CMD.CMD_ASTRO_GO_LIVE)
+        # dwarf_python_api names 16402 MODE_QUERY, but with a mode in the body it switches to that mode.
+        mode = c.call(MODULE_DEVICE_CONFIG, CMD.CMD_V3_DEVICE_CONFIG_MODE_QUERY,
+                      encode(task_center.ReqSwitchShootingMode(mode=SHOOTING_MODE_ASTRO)))
         if reply_code(mode) == MODE_REFUSED:
             self.log("astro mode: refused, keeping the current mode")
         else:
             self._ok("astro mode", mode)
-        self._ok("enter camera", c.call(MODULE_DEVICE_CONFIG, 16404, field_bytes(3, field_int(1, 1))))
-        self._ok("deep sky tech", c.call(MODULE_DEVICE_CONFIG, 16403, field_int(1, 2)))
+        self._ok("enter camera", c.call(MODULE_DEVICE_CONFIG, CMD.CMD_V3_DEVICE_CONFIG_MODE_SWITCH, encode(
+            task_center.ReqEnterCamera(client_param=task_center.ClientParams(encode_type=ENCODE_TYPE)))))
+        self._ok("deep sky tech", c.call(MODULE_DEVICE_CONFIG, CMD.CMD_V3_DEVICE_CONFIG_SHOOTING_MODE,
+                                           encode(task_center.ReqSwitchShootingTech(tech=SHOOTING_TECH_DEEP_SKY))))
 
-    def position(self, motor: int) -> float | None:
-        fields = self._call(MODULE_MOTOR, 14011, field_int(1, motor), timeout=8)
+    def position(self, motor_id: int) -> float | None:
+        fields = self._call(MODULE_MOTOR, CMD.CMD_STEP_MOTOR_GET_POSITION, encode(motor.ReqMotorGetPosition(id=motor_id)), timeout=8)
         return None if fields is None else dict(fields).get(3)
 
-    def move(self, motor: int, position: float, speed: float = 10.0, resolution: int = 3) -> None:
-        data = (field_int(1, motor) + field_double(2, position) + field_double(3, speed)
-                + field_int(4, 100) + field_int(5, resolution))
-        self._ok(f"move motor {motor} to {position}", self._call(MODULE_MOTOR, 14001, data, timeout=60), 2)
+    def move(self, motor_id: int, position: float, speed: float = 10.0, resolution: int = 3) -> None:
+        data = encode(motor.ReqMotorRunTo(id=motor_id, end_position=position, speed=speed,
+                                          speed_ramping=100, resolution_level=resolution))
+        reply = self._call(MODULE_MOTOR, CMD.CMD_STEP_MOTOR_RUN_TO, data, timeout=60)
+        self._ok(f"move motor {motor_id} to {position}", reply, 2)
 
     def home(self) -> None:
-        fields = self._call(MODULE_MOTOR, 14003, field_int(1, MOTOR_ROTATION), timeout=120)
+        fields = self._call(MODULE_MOTOR, CMD.CMD_STEP_MOTOR_RESET, encode(motor.ReqMotorReset(id=MOTOR_ROTATION)), timeout=120)
         self.rotation_locked = reply_code(fields, 2) == ROTATION_LOCKED
         if not self.rotation_locked:
             self._ok("reset rotation", fields, 2)
-        self._ok("reset pitch", self._call(MODULE_MOTOR, 14003, field_int(1, MOTOR_PITCH) + field_int(2, 1), timeout=120), 2)
+        pitch = encode(motor.ReqMotorReset(id=MOTOR_PITCH, direction=True))
+        self._ok("reset pitch", self._call(MODULE_MOTOR, CMD.CMD_STEP_MOTOR_RESET, pitch, timeout=120), 2)
 
     def point_up(self) -> None:
         if not self.rotation_locked:
@@ -139,17 +153,17 @@ class Scope:
         self.move(MOTOR_PITCH, PITCH_CLOSED, resolution=2)
 
     def focus_infinity(self) -> None:
-        self._ok("infinity focus", self._call(MODULE_FOCUS, 15004, field_int(1, 1), timeout=90))
+        self._ok("infinity focus", self._call(MODULE_FOCUS, AUTOFOCUS, encode(focus.ReqAstroAutoFocus(mode=1)), timeout=90))
 
     def autofocus(self) -> None:
-        self._ok("autofocus", self._call(MODULE_FOCUS, 15004, timeout=120))
+        self._ok("autofocus", self._call(MODULE_FOCUS, AUTOFOCUS, timeout=120))
 
     def calibrate(self, timeout: float = 420) -> None:
-        self._send(MODULE_ASTRO, 11000)
+        self._send(MODULE_ASTRO, CALIBRATE)
         end = time.time() + timeout
         while time.time() < end:
             packet = self.client.recv()
-            if packet and packet[0] == 11000 and packet[1] != 0:
+            if packet and packet[0] == CALIBRATE and packet[1] != 0:
                 code = reply_code(packet[2])
                 if code != 0:
                     raise ScopeError(f"calibration failed, code {code}, pitch {self.position(MOTOR_PITCH)}")
@@ -158,13 +172,13 @@ class Scope:
         raise ScopeError(f"calibration timed out, pitch {self.position(MOTOR_PITCH)}")
 
     def goto(self, name: str, ra_hours: float, dec_deg: float, timeout: float = 240) -> None:
-        self._send(MODULE_ASTRO, 11002, field_double(1, ra_hours) + field_double(2, dec_deg) + field_bytes(3, name.encode()))
+        self._send(MODULE_ASTRO, GOTO, encode(astro.ReqGotoDSO(ra=ra_hours, dec=dec_deg, target_name=name)))
         end = time.time() + timeout
         while time.time() < end:
             packet = self.client.recv()
             if not packet:
                 continue
-            if packet[0] == 11002 and packet[1] != 0 and reply_code(packet[2]):
+            if packet[0] == GOTO and packet[1] != 0 and reply_code(packet[2]):
                 raise ScopeError(f"goto refused: code {reply_code(packet[2])}")
             if packet[0] == NOTIFY_TRACKING and dict(packet[2]).get(1) == STATE_RUNNING:
                 self.log("goto: tracking")
@@ -173,9 +187,12 @@ class Scope:
 
     def set_capture(self, exposure: str, gain: int, filter_name: str) -> None:
         c = self.client
-        self._ok("exposure", c.call(MODULE_PARAMS, 16700, field_int(1, PARAM_EXPOSURE) + field_int(2, 1) + field_int(3, EXPOSURE_INDEX[exposure])))
-        self._ok("gain", c.call(MODULE_PARAMS, 16701, field_int(1, PARAM_GAIN) + field_int(2, 1) + field_int(3, gain)))
-        self._ok("filter", c.call(MODULE_PARAMS, 16703, field_int(1, PARAM_IR_FILTER) + field_int(2, FILTERS[filter_name])))
+        exposure_req = param.ReqSetExposure(param_id=PARAM_EXPOSURE, mode=1, value=EXPOSURE_INDEX[exposure])
+        self._ok("exposure", c.call(MODULE_PARAMS, CMD.CMD_V3_CAMERA_PARAMS_SET_PARAM, encode(exposure_req)))
+        gain_req = param.ReqSetGain(param_id=PARAM_GAIN, mode=1, value=gain)
+        self._ok("gain", c.call(MODULE_PARAMS, CMD.CMD_V3_CAMERA_PARAMS_SET_EXP_GAIN, encode(gain_req)))
+        filter_req = param.ReqSetGeneralIntParam(param_id=PARAM_IR_FILTER, value=FILTERS[filter_name])
+        self._ok("filter", c.call(MODULE_PARAMS, CMD.CMD_V3_CAMERA_PARAMS_ADJUST, encode(filter_req)))
 
     def capture(self, frames: int, filter_name: str, exposure_s: float, cancel=None, progress=None) -> str:
         """Capture frames and stop at the count. Return the session folder.
@@ -190,7 +207,7 @@ class Scope:
         started = False
         try:
             before = raw_sessions(album.names(ALBUM_ROOT))
-            self._send(MODULE_ASTRO, 11005, field_int(1, FILTERS[filter_name]) + field_int(2, 1))
+            self._send(MODULE_ASTRO, CAPTURE_START, encode(astro.ReqCaptureRawLiveStacking(ir_index=FILTERS[filter_name], force_start=True)))
             started = True
             begun = time.time()
             end = begun + 120 + frames * (exposure_s + 15)
@@ -202,7 +219,7 @@ class Scope:
             next_poll = time.time() + 5
             while time.time() < end and not (cancel and cancel.is_set()):
                 packet = self._recv()
-                if packet and packet[0] == 11005 and packet[1] != 0:
+                if packet and packet[0] == CAPTURE_START and packet[1] != 0:
                     start_code = reply_code(packet[2]) or 0
                     self.log(f"capture start reply: code {start_code}")
                 if packet and packet[0] == NOTIFY_CAPTURE:
@@ -243,12 +260,13 @@ class Scope:
             self.log(f"stop after a failed capture did not finish: {exc}")
 
     def stop_capture(self) -> None:
-        self._send(MODULE_ASTRO, 11006)
+        self._send(MODULE_ASTRO, CMD.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING)
         idle = self._wait(NOTIFY_CAPTURE, 60, lambda f: f.get(1, 0) != STATE_RUNNING)
         self.log("capture stop sent" if idle is None else "capture stopped")
 
     def dark_list(self, wide: bool = False) -> list[dict]:
-        fields = self._call(MODULE_ASTRO, 11027 if wide else 11023) or []
+        cmd = CMD.CMD_ASTRO_GET_WIDE_DARK_FRAME_LIST if wide else CMD.CMD_ASTRO_GET_DARK_FRAME_LIST
+        fields = self._call(MODULE_ASTRO, cmd) or []
         rows = []
         for field, value in fields:
             if field == 2:
@@ -258,11 +276,13 @@ class Scope:
 
     def start_dark(self, exposure: str, gain: str, frames: int, wide: bool = False) -> None:
         """Start a dark capture. The scope sends no reply, so watch the dark folder for completion."""
-        data = field_int(1, EXPOSURE_INDEX[exposure]) + field_int(2, DARK_GAIN_INDEX[gain]) + field_int(4, frames)
-        self._send(MODULE_ASTRO, 11025 if wide else 11021, data)
+        data = encode(astro.ReqCaptureDarkFrameWithParam(
+            exp_index=EXPOSURE_INDEX[exposure], gain_index=DARK_GAIN_INDEX[gain], cap_size=frames))
+        wide_cmd, tele_cmd = CMD.CMD_ASTRO_START_CAPTURE_WIDE_RAW_DARK_WITH_PARAM, CMD.CMD_ASTRO_START_CAPTURE_RAW_DARK_WITH_PARAM
+        self._send(MODULE_ASTRO, wide_cmd if wide else tele_cmd, data)
 
     def joystick(self, angle: float, length: float, seconds: float) -> None:
-        vector = field_double(1, angle) + field_double(2, length)
+        vector = encode(motor.ReqMotorServiceJoystick(vector_angle=angle, vector_length=length))
         end = time.time() + seconds
         try:
             while time.time() < end:

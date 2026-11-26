@@ -20,7 +20,8 @@ from .client import ConnectionLost
 from .endpoints import ensure_token
 from .metrics import Metrics, command_name, summary
 from .scope import NOTIFY_CAPTURE, STATE_RUNNING
-from .wire import field_bytes, field_int, parse
+from .protocol import base
+from .wire import parse
 
 CONTROL_PORT = 9900
 API_PORT = 8082
@@ -132,7 +133,7 @@ def decode_packet(payload: bytes) -> dict:
     """Decode a WsPacket. The body stays as hex, because its schema depends on cmd."""
     packet = dict(parse(payload))
     data = packet.get(7, b"")
-    result = {"module": packet.get(4), "cmd": packet.get(5), "type": packet.get(6), "client": _printable(packet.get(8, b"")), "data": data.hex()}
+    result = {"module": packet.get(4), "cmd": packet.get(5), "type": packet.get(6, 0), "client": _printable(packet.get(8, b"")), "data": data.hex()}
     try:
         result["fields"] = [[field, _printable(value)] for field, value in parse(data)]
     except (ValueError, IndexError, struct.error):
@@ -162,8 +163,10 @@ class AppLink:
 
     def packet(self, module: int, cmd: int, data: bytes) -> bytes:
         h = self.header
-        return (field_int(1, h.get(1, 0)) + field_int(2, h.get(2, 0)) + field_int(3, h.get(3, 0))
-                + field_int(4, module) + field_int(5, cmd) + field_bytes(7, data) + field_bytes(8, h.get(8, b"")))
+        return base.WsPacket(
+            major_version=h.get(1, 0), minor_version=h.get(2, 0), device_id=h.get(3, 0),
+            module_id=module, cmd=cmd, data=data, client_id=h.get(8, b"").decode(errors="replace"),
+        ).SerializeToString()
 
 
 class Relay:
@@ -295,7 +298,7 @@ class Relay:
     def _publish(self, payload: bytes) -> None:
         if self.subscribers:
             packet = dict(parse(payload))
-            item = (packet.get(5), packet.get(6), parse(packet.get(7, b"")))
+            item = (packet.get(5), packet.get(6, 0), parse(packet.get(7, b"")))
             for subscriber in self.subscribers:
                 subscriber.put(item)
 
