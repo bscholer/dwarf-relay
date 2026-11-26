@@ -77,7 +77,7 @@ The relay checks every 2 seconds whether the scope is on while it is away (every
 
 ## Metrics and logs
 
-`GET :9902/metrics` serves Prometheus metrics: scope reachability, app connection, battery, SD space, temperatures, capture and calibration state, commands, errors, and traffic. Scope values update only while a client is connected. Stdout has one JSON line for each command or error, with no payloads.
+`GET :9902/metrics` serves Prometheus metrics: scope reachability, app connection, battery, SD space, temperatures, capture and calibration state, commands, errors, and traffic. Scope values update only while a client is connected. Stdout has one JSON line for each event in the log file, payloads included, but nothing about video (port 554) or image files. As the Home Assistant app, that reaches the journal and anything shipping it, such as Loki, so the lines hold the site location and the scope's MAC and serial. Set `DWARF3_LOG_FULL=off` to print only a short line for each command or error.
 
 ## Status
 

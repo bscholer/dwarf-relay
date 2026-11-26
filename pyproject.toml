@@ -1,6 +1,6 @@
 [project]
 name = "dwarf-relay"
-version = "0.6.1"
+version = "0.6.2"
 description = "Relay and control service for DWARF smart telescopes"
 requires-python = ">=3.11"
 dependencies = [

@@ -143,16 +143,45 @@ def decode_packet(payload: bytes) -> dict:
     return result
 
 
+MEDIA_PATH = re.compile(r"\.(jpe?g|png|gif|bmp|webp|tiff?|fits?|mp4|mov|avi|mkv|ts|h26[45])(\?|$)", re.IGNORECASE)
+MEDIA_BODY = re.compile(rb"content-type:\s*(image|video)/", re.IGNORECASE)
+RTSP_PORT = 554
+MAX_STDOUT_FIELD = 2000
+
+
+def is_media(event: dict) -> bool:
+    """True for an event about video or images, which stays out of stdout (and so out of Loki)."""
+    if event.get("port") == RTSP_PORT:
+        return True
+    return bool(MEDIA_PATH.search(str(event.get("path", ""))))
+
+
+def clip(event: dict) -> dict:
+    """Shorten long strings, so one event stays on one journal line."""
+    return {k: v[:MAX_STDOUT_FIELD] + f"...(+{len(v) - MAX_STDOUT_FIELD})" if isinstance(v, str) and len(v) > MAX_STDOUT_FIELD else v
+            for k, v in event.items()}
+
+
 class Log:
-    def __init__(self, path: Path):
+    """Every event goes to the file. Stdout gets the same events, minus video and images, as one JSON line each.
+
+    The add-on's stdout reaches the journal and Loki. Set DWARF3_LOG_FULL=off to print only the short summary."""
+
+    def __init__(self, path: Path, full: bool | None = None):
         path.parent.mkdir(parents=True, exist_ok=True)
         self.path = path
         self.file = path.open("a", buffering=1)
+        self.full = os.environ.get("DWARF3_LOG_FULL", "on").lower() not in ("off", "0", "false") if full is None else full
 
     def write(self, **event) -> None:
-        self.file.write(json.dumps({"t": round(time.time(), 3), **event}) + "\n")
+        record = {"t": round(time.time(), 3), **event}
+        self.file.write(json.dumps(record) + "\n")
+        full = self.full and not is_media(record)
+        if full:
+            print(json.dumps(clip(record)), flush=True)
         line = summary(event)
-        if line:
+        # The full line already carries what a summary of the same event would.
+        if line and not (full and line.get("event") == event.get("event")):
             print(json.dumps(line), flush=True)
 
 
@@ -272,7 +301,7 @@ class Relay:
                 self.capture_running = False
             if link and self.app_link is link:
                 self.app_link = None
-            if api:
+            if api and not MEDIA_BODY.search(bytes(api[:4096])):
                 self.log.write(event="http", conn=conn, source=source, text=redact(bytes(api)).decode("utf-8", "replace"))
             self.log.write(event="close", conn=conn, port=port, source=source, bytes=total)
             writer.close()

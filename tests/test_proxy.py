@@ -199,3 +199,23 @@ def test_inject_failure_is_a_lost_connection(tmp_path):
     relay = Relay("scope", Log(tmp_path / "proxy.jsonl"))
     with pytest.raises(ConnectionLost):
         asyncio.run(relay.inject(6, 14008, b""))
+
+
+def test_stdout_gets_full_events_but_not_video_or_images(tmp_path, capsys):
+    log = Log(tmp_path / "proxy.jsonl", full=True)
+    log.write(event="ws", conn=1, source="scope", cmd=15209, data="0a0b")
+    log.write(event="open", conn=2, port=554, peer="x")
+    log.write(event="http_request", conn=3, port=8092, method="GET", path="/photo/IMG_1.jpg")
+    log.write(event="http_request", conn=3, port=8092, method="GET", path="/list")
+    log.write(event="ws_close", conn=1, source="app", code=1000, reason="")
+    lines = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert [(line["event"], line.get("path")) for line in lines] == [
+        ("ws", None), ("http_request", "/list"), ("ws_close", None)]
+    assert lines[0]["data"] == "0a0b" and lines[2]["source"] == "app"
+    assert len((tmp_path / "proxy.jsonl").read_text().splitlines()) == 5  # The file keeps everything.
+
+
+def test_log_full_off_prints_only_the_summary(tmp_path, capsys):
+    log = Log(tmp_path / "proxy.jsonl", full=False)
+    log.write(event="ws", conn=1, source="app", cmd=13010, type=None, fields=[], data="ff")
+    assert json.loads(capsys.readouterr().out) == {"event": "command", "source": "app", "command": "13010"}
