@@ -7,11 +7,11 @@ import os
 import threading
 import uuid
 
-from . import __version__, frame
+from . import __version__, frame, models
 from .client import Client
-from .files import Album, delete_session, sd_free_gb
+from .files import Album, delete_session, sd_free_from_info
 from .spec import CAPABILITY_OPERATIONS, SPEC_VERSION
-from .scope import ALBUM_ROOT, EXPOSURE_INDEX, FILTERS, MOTOR_PITCH, MOTOR_ROTATION, Scope
+from .scope import MOTOR_PITCH, MOTOR_ROTATION, Scope
 
 log = logging.getLogger("dwarf_relay.service")
 
@@ -23,7 +23,6 @@ LOCAL_RELAY = "127.0.0.1"
 
 
 MIN_PITCH = 0.0
-MAX_PITCH = 175.0
 
 
 def sun_position(when: dt.datetime) -> tuple[float, float]:
@@ -37,12 +36,12 @@ def sun_position(when: dt.datetime) -> tuple[float, float]:
     return (math.degrees(ra) / 15) % 24, math.degrees(math.asin(math.sin(tilt) * math.sin(ecliptic)))
 
 
-def album_path(path: str) -> str:
+def album_path(path: str, root: str = models.DWARF3.album_roots[0]) -> str:
     """Map a path under the album to its full scope path. Refuse any path outside the album."""
     parts = [p for p in path.split("/") if p]
     if ".." in parts or "." in parts:
         raise ValueError("path must stay inside the album")
-    return "/".join([ALBUM_ROOT, *parts])
+    return "/".join([root, *parts])
 
 
 def separation_deg(ra1: float, dec1: float, ra2: float, dec2: float) -> float:
@@ -71,15 +70,48 @@ class Service:
         self.job: dict | None = None
         self.cancel = threading.Event()
         self.positions: dict = {}
+        self._model: models.Model | None = models.by_key(os.environ["DWARF_MODEL"]) if os.environ.get("DWARF_MODEL") else None
+        self._album_root: str | None = None
+
+    @property
+    def model(self) -> models.Model:
+        """The connected model, asked of the scope once. The DWARF 3 until the scope has answered."""
+        if self._model is None:
+            found = models.detect(self.scope_host)
+            if found is None:
+                return models.DEFAULT
+            self._model = found
+            log.info("scope model: %s", found.name)
+        return self._model
+
+    def _note_device_info(self, info: dict) -> None:
+        if self._model is None:
+            self._model = models.from_device_info(info) or models.DEFAULT
+            log.info("scope model: %s", self._model.name)
+
+    def album_root(self) -> str:
+        """The scope folder that holds astro sessions. Models name it differently, so look once."""
+        if self._album_root:
+            return self._album_root
+        model = self.model
+        if len(model.album_roots) == 1:
+            return model.album_roots[0]
+        album = Album(self.scope_host)
+        try:
+            self._album_root = next((r for r in model.album_roots if album.has_folder(r)), model.album_roots[0])
+        finally:
+            album.close()
+        return self._album_root
 
     def _client(self):
         from .proxy import RelayClient
 
         link = self.relay.app_link
-        return RelayClient(self.relay, self.loop) if link and link.header else Client(LOCAL_RELAY)
+        return RelayClient(self.relay, self.loop) if link and link.header else Client(LOCAL_RELAY, header=self.model.header)
 
     def _scope(self) -> Scope:
-        return Scope(self.scope_host, log=log.info, client=self._client(), reconnect=self._client)
+        return Scope(self.scope_host, log=log.info, client=self._client(), reconnect=self._client, model=self.model,
+                     album_root=self.album_root())
 
     def _with_scope(self, fn):
         if self.job and self.job["state"] == "running":
@@ -96,8 +128,11 @@ class Service:
             self.lock.release()
 
     def capabilities(self) -> dict:
-        return {"spec_version": SPEC_VERSION, "service": {"name": "dwarf-relay", "vendor": "DWARFLAB", "model": "DWARF 3", "version": __version__},
-                "capabilities": sorted(CAPABILITY_OPERATIONS)}
+        model = self._model or models.DEFAULT  # never wait on the scope here
+        service = {"name": "dwarf-relay", "vendor": "DWARFLAB", "model": model.name, "version": __version__}
+        capture = {"filters": list(model.filters), "exposures": models.exposures(model), "wide_darks": model.wide_astro}
+        return {"spec_version": SPEC_VERSION, "service": service,
+                "capabilities": sorted(CAPABILITY_OPERATIONS), "capture": capture}
 
     def status(self) -> dict:
         def read(s):
@@ -155,7 +190,11 @@ class Service:
         }
 
     def _sd_free_gb(self) -> float | None:
-        free = sd_free_gb(self.scope_host)
+        info = models.device_info(self.scope_host)
+        free = None
+        if info is not None:
+            self._note_device_info(info)
+            free = sd_free_from_info(info)
         if free is not None:
             return free
         gauges = getattr(getattr(self.relay, "metrics", None), "gauges", {})
@@ -164,7 +203,7 @@ class Service:
     def list_sessions(self) -> list[str]:
         album = Album(self.scope_host)
         try:
-            return sorted(n for n in album.names(ALBUM_ROOT) if n.startswith("DWARF_RAW_"))
+            return sorted(n for n in album.names(self.album_root()) if n.startswith("DWARF_RAW_"))
         finally:
             album.close()
 
@@ -172,7 +211,7 @@ class Service:
         """Delete one capture session from the scope. Refuse while any capture runs."""
         if (self.job and self.job["state"] == "running") or self.relay.capture_running:
             raise RuntimeError("a capture is running, stop it before deleting")
-        if not delete_session(self.scope_host, session):
+        if not delete_session(self.scope_host, session, http_root=self.model.album_http_root):
             raise ValueError(f"no such session: {session}")
         log.warning("deleted session %s", session)
         return f"deleted {session}"
@@ -180,12 +219,12 @@ class Service:
     def list_files(self, path: str = "") -> list[dict]:
         album = Album(self.scope_host)
         try:
-            return album.entries(album_path(path))
+            return album.entries(album_path(path, self.album_root()))
         finally:
             album.close()
 
     def read_chunk(self, path: str, offset: int, length: int) -> dict:
-        full = album_path(path)
+        full = album_path(path, self.album_root())
         album = Album(self.scope_host)
         try:
             size = next((e["size"] for e in album.entries(full.rsplit("/", 1)[0]) if e["name"] == full.rsplit("/", 1)[1]), None)
@@ -212,7 +251,7 @@ class Service:
             s.point_up()
 
         self._with_scope(run)
-        return "ready, pointing up"
+        return "ready, pointing up" if self.model.pitch_zenith is not None else "ready"
 
     def move(self, angle: float, length: float, seconds: float) -> str:
         if not 0 <= length <= 1 or not 0 < seconds <= MAX_MOVE_SECONDS:
@@ -221,8 +260,8 @@ class Service:
         return "moved"
 
     def point(self, pitch: float, rotation: float | None) -> str:
-        if not MIN_PITCH <= pitch <= MAX_PITCH:
-            raise ValueError(f"pitch must be {MIN_PITCH:.0f} to {MAX_PITCH:.0f}")
+        if not MIN_PITCH <= pitch <= self.model.max_pitch:
+            raise ValueError(f"pitch must be {MIN_PITCH:.0f} to {self.model.max_pitch:.0f}")
         if rotation is not None and not 0 <= rotation <= 360:
             raise ValueError("rotation must be 0 to 360")
         if self.relay.capture_running and not (self.job and self.job["state"] == "running"):
@@ -254,8 +293,10 @@ class Service:
         return f"tracking {name}"
 
     def start_capture(self, frames: int, exposure: str = "15", gain: int = 60, filter: str = "duo") -> dict:
-        if not 0 < frames <= MAX_FRAMES or exposure not in EXPOSURE_INDEX or filter not in FILTERS:
-            raise ValueError(f"frames must be 1 to {MAX_FRAMES}, exposure one of {sorted(EXPOSURE_INDEX)}, filter one of {sorted(FILTERS)}")
+        if not 0 < frames <= MAX_FRAMES:
+            raise ValueError(f"frames must be 1 to {MAX_FRAMES}")
+        models.exposure_index(self.model, exposure)  # ValueError names the exposures this model has
+        models.filter_index(self.model, filter)
         if self.job and self.job["state"] == "running":
             raise RuntimeError("a capture job is already running")
         if not self.lock.acquire(timeout=LOCK_WAIT_S):
@@ -295,5 +336,7 @@ class Service:
         return "nothing to stop"
 
     def start_dark(self, frames: int, exposure: str = "15", wide: bool = False) -> str:
+        if wide and not self.model.wide_astro:
+            raise ValueError(f"the {self.model.name} takes no wide-camera astro frames, so it has no wide darks")
         self._with_scope(lambda s: s.start_dark(exposure, "60", frames, wide=wide))
         return "dark capture sent"

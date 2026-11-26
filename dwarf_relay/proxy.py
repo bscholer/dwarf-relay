@@ -19,6 +19,7 @@ from . import api
 from .client import ConnectionLost
 from .endpoints import ensure_token
 from .metrics import Metrics, command_name, summary
+from .models import relay_name
 from .scope import NOTIFY_CAPTURE, STATE_RUNNING
 from .protocol import base
 from .wire import parse
@@ -28,8 +29,9 @@ API_PORT = 8082
 HTTP_PORTS = (80, API_PORT, 8085, 8092)
 TCP_PORTS = (80, 554, CONTROL_PORT, API_PORT, 8085, 8092)
 INJECT_PORT = 9901
-RELAY_NAME = b"DWARF3_RELAY1"  # Same length as the scope name, so Content-Length and protobuf sizes stay valid.
-SCOPE_NAME = re.compile(rb"DWARF3_[0-9A-F]{6}")
+# A scope name: the model prefix (DWARF3_, DWARF_mini_, DWARF_) and 6 hex digits. The relay swaps in its own name
+# of the same length (DWARF3_RELAY1 for a DWARF 3), so Content-Length and protobuf sizes stay valid.
+SCOPE_NAME = re.compile(rb"DWARF(?:3|_mini|II|_II|2)?_[0-9A-F]{6}(?![0-9A-Za-z])")
 INJECT_WAIT_S = 1.0
 MAX_API_CAPTURE = 1 << 20
 REQUEST_LINE = re.compile(rb"^(GET|POST|PUT|DELETE|PATCH|HEAD) (\S+) HTTP/1\.[01]\r\n", re.MULTILINE)
@@ -41,7 +43,7 @@ OPCODE_BINARY, OPCODE_CLOSE = 2, 8
 
 
 def rename(data: bytes) -> bytes:
-    return SCOPE_NAME.sub(RELAY_NAME, data)
+    return SCOPE_NAME.sub(lambda m: relay_name(m.group(0)), data)
 
 
 def http_requests(chunk: bytes) -> list[dict]:

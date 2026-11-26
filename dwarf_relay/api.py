@@ -35,10 +35,17 @@ class ServiceInfo(BaseModel):
     version: str | None = Field(None, description="Version of this service.")
 
 
+class CaptureOptions(BaseModel):
+    filters: list[str] = Field(description="Filter names startCapture accepts on this scope.")
+    exposures: list[str] = Field(description="Exposures in seconds that startCapture and startDark accept.")
+    wide_darks: bool = Field(description="Whether startDark takes wide=true on this scope.")
+
+
 class CapabilitiesOut(BaseModel):
     spec_version: str
     service: ServiceInfo
     capabilities: list[str]
+    capture: CaptureOptions | None = Field(None, description="Choices that depend on the scope model. Since spec 0.2.")
 
 
 class CameraIn(BaseModel):
@@ -61,7 +68,7 @@ class MoveIn(BaseModel):
 
 
 class PointIn(BaseModel):
-    pitch: float = Field(description="Absolute pitch position, 0 to 175. 172.5 is straight up.")
+    pitch: float = Field(description="Absolute pitch position, 0 to 175. On a DWARF 3, 172.5 is straight up.")
     rotation: float | None = Field(None, description="Absolute rotation position, 0 to 360.")
 
 
@@ -73,14 +80,14 @@ class GotoIn(BaseModel):
 
 class CaptureIn(BaseModel):
     frames: int = Field(ge=1, le=500)
-    exposure: str = Field("15", description="Seconds per frame: 15, 30, or 60.")
+    exposure: str = Field("15", description="Seconds per frame, one of capabilities capture.exposures (15, 30 or 60 on a DWARF 3).")
     gain: int = 60
-    filter: str = Field("duo", description="vis, astro, or duo.")
+    filter: str = Field("duo", description="One of capabilities capture.filters (vis, astro or duo on a DWARF 3).")
 
 
 class DarkIn(BaseModel):
     frames: int = Field(ge=1, le=500)
-    exposure: str = Field("15", description="Seconds per frame: 15, 30, or 60.")
+    exposure: str = Field("15", description="Seconds per frame, one of capabilities capture.exposures (15, 30 or 60 on a DWARF 3).")
     wide: bool = Field(False, description="true for the wide camera")
 
 
@@ -302,8 +309,8 @@ def goto(p: GotoIn) -> Message:
 
 
 @mcp_tool(name="start_capture", title="Start a capture job",
-          description="Start a capture job that stops at the frame count. Exposure is 15, 30, or 60. "
-                      "Filter is vis, astro, or duo.",
+          description="Start a capture job that stops at the frame count. Exposure and filter are names from "
+                      "the capture options in capabilities.",
           annotations=acts(), error_map=TOOL_ERRORS)
 @http_endpoint(path="/api/capture", operation_id="startCapture", method="POST", payload_model=CaptureIn,
                response_model=Job, status_code=202,

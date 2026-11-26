@@ -27,7 +27,7 @@ API_PORT = 8082
 MEDIA_TYPE_ASTRO, SUB_TYPE_SESSION = 4, 1
 
 
-def delete_session(host: str, session: str, urlopen=urllib.request.urlopen) -> bool:
+def delete_session(host: str, session: str, urlopen=urllib.request.urlopen, http_root: str = "/DWARF3/Astronomy") -> bool:
     """Delete one capture session through the scope album API, as the DWARFLAB app does.
 
     The app names a session by its stacked.jpg entry. Return False when the scope has no such session."""
@@ -35,7 +35,7 @@ def delete_session(host: str, session: str, urlopen=urllib.request.urlopen) -> b
         raise ValueError("session must be a DWARF_RAW_ folder name")
     entry = {
         "fileName": session,
-        "filePath": f"/DWARF3/Astronomy/{session}/stacked.jpg",
+        "filePath": f"{http_root}/{session}/stacked.jpg",
         "mediaType": MEDIA_TYPE_ASTRO,
         "subType": SUB_TYPE_SESSION,
     }
@@ -61,9 +61,14 @@ def sd_free_gb(host: str, urlopen=urllib.request.urlopen) -> float | None:
     )
     try:
         with urlopen(request, timeout=5) as resp:
-            card = (json.loads(resp.read()).get("data") or {}).get("sdCardInfo") or {}
+            return sd_free_from_info(json.loads(resp.read()).get("data") or {})
     except (OSError, ValueError):
         return None
+
+
+def sd_free_from_info(info: dict) -> float | None:
+    """Free SD card space from a deviceInfo reply."""
+    card = info.get("sdCardInfo") or {}
     free = card.get("availableSize")
     return float(free) if card.get("hasSdcard") and isinstance(free, (int, float)) else None
 
@@ -76,6 +81,14 @@ class Album:
     def __init__(self, host: str):
         self.ftp = ftplib.FTP(host, timeout=30)
         self.ftp.login()
+
+    def has_folder(self, path: str) -> bool:
+        try:
+            self.ftp.cwd(path)
+        except ftplib.error_perm:
+            return False
+        self.ftp.cwd("/")
+        return True
 
     def names(self, path: str) -> list[str]:
         return [n.rsplit("/", 1)[-1] for n in self.ftp.nlst(path)]
