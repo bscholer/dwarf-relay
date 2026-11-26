@@ -276,6 +276,8 @@ class Service:
         return "pointed"
 
     def close_barrel(self) -> str:
+        if self.model.pitch_closed is None:
+            return f"skipped: the closed position is not known for the {self.model.name}"
         self._with_scope(lambda s: s.close_barrel())
         return "closed"
 
