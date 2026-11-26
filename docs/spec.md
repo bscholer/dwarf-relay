@@ -15,6 +15,7 @@ The service publishes `/openapi.json` and an MCP endpoint at `/mcp`. Both come f
 | (always) | `getCapabilities` |
 | `status` | `getStatus` |
 | `setup` | `prepareScope`, `calibrateScope` |
+| `focus` | `autofocusScope` |
 | `goto` | `gotoTarget` |
 | `capture` | `startCapture`, `stopCapture` |
 | `darks` | `listDarks`, `startDark` |

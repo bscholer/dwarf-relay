@@ -5,6 +5,33 @@
       "openWorldHint": false,
       "readOnlyHint": false
     },
+    "description": "Run the scope's star-based autofocus where it points now. Needs stars in view; takes a minute or two.",
+    "inputSchema": {
+      "properties": {},
+      "type": "object"
+    },
+    "name": "autofocus",
+    "outputSchema": {
+      "properties": {
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "Message",
+      "type": "object"
+    },
+    "title": "Autofocus on stars"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
     "description": "Focus at infinity and plate solve. Needs a clear view of stars.",
     "inputSchema": {
       "properties": {},

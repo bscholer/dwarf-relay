@@ -90,3 +90,17 @@ def test_failed_calibration_reports_the_code_and_where_the_scope_points():
     scope = Scope("x", client=Client([(11000, 3, [(1, -11504)])]))
     with pytest.raises(ScopeError, match="code -11504, pitch 153.4"):
         scope.calibrate(timeout=5)
+
+
+def test_autofocus_reports_a_failure_and_a_timeout():
+    class Client:
+        def __init__(self, reply):
+            self.reply = reply
+
+        def call(self, module, cmd, data=b"", timeout=None):
+            return self.reply
+
+    with pytest.raises(ScopeError, match="autofocus failed, code -15100"):
+        Scope("x", log=lambda *_: None, client=Client([(1, -15100)])).autofocus()
+    with pytest.raises(ScopeError, match="autofocus timed out after 5 s"):
+        Scope("x", log=lambda *_: None, client=Client(None)).autofocus(timeout=5)

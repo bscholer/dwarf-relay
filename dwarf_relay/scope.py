@@ -13,6 +13,7 @@ MODULE_FOCUS, MODULE_DEVICE_CONFIG, MODULE_PARAMS = CMD.MODULE_FOCUS, CMD.MODULE
 MOTOR_ROTATION, MOTOR_PITCH = 1, 2
 CALIBRATE, GOTO, CAPTURE_START = CMD.CMD_ASTRO_START_CALIBRATION, CMD.CMD_ASTRO_START_GOTO_DSO, CMD.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING
 AUTOFOCUS = CMD.CMD_FOCUS_START_ASTRO_AUTO_FOCUS
+AUTOFOCUS_TIMEOUT_S = 300
 JOYSTICK, JOYSTICK_STOP = CMD.CMD_STEP_MOTOR_SERVICE_JOYSTICK, CMD.CMD_STEP_MOTOR_SERVICE_JOYSTICK_STOP
 SHOOTING_MODE_ASTRO, SHOOTING_TECH_DEEP_SKY, ENCODE_TYPE = 2, 2, 1
 PITCH_CLOSED = models.DWARF3.pitch_closed
@@ -181,8 +182,17 @@ class Scope:
     def focus_infinity(self) -> None:
         self._ok("infinity focus", self._call(MODULE_FOCUS, AUTOFOCUS, encode(focus.ReqAstroAutoFocus(mode=1)), timeout=90))
 
-    def autofocus(self) -> None:
-        self._ok("autofocus", self._call(MODULE_FOCUS, AUTOFOCUS, timeout=120))
+    def autofocus(self, timeout: float = AUTOFOCUS_TIMEOUT_S) -> None:
+        """Astro autofocus in slow mode (0): the firmware sweeps the focuser on the stars in view.
+
+        focus_infinity is the same command in fast mode (1), a short move near the last good
+        focus. The scope replies when the sweep ends; -15100 means it found no focus (cloud,
+        too few stars).
+        """
+        fields = self._call(MODULE_FOCUS, AUTOFOCUS, encode(focus.ReqAstroAutoFocus(mode=0)), timeout=timeout)
+        if fields is None:
+            raise ScopeError(f"autofocus timed out after {timeout:.0f} s")
+        self._ok("autofocus", fields)
 
     def calibrate(self, timeout: float = 420) -> None:
         self._send(MODULE_ASTRO, CALIBRATE)
