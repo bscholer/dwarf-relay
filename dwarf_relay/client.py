@@ -23,7 +23,8 @@ class ConnectionLost(RuntimeError):
 
 
 class Client:
-    def __init__(self, host: str, recv_timeout: float = 2.0):
+    def __init__(self, host: str, recv_timeout: float = 2.0, header: tuple[int, int, int] = (MAJOR_VERSION, MINOR_VERSION, DEVICE_ID)):
+        self.header = header
         self.client_id = str(uuid.uuid4())
         self.ws = websocket.create_connection(f"ws://{host}:{PORT}/", timeout=recv_timeout)
         self.last: dict[int, list] = {}
@@ -31,7 +32,7 @@ class Client:
 
     def send(self, module: int, cmd: int, data: bytes = b"") -> None:
         packet = base.WsPacket(
-            major_version=MAJOR_VERSION, minor_version=MINOR_VERSION, device_id=DEVICE_ID,
+            major_version=self.header[0], minor_version=self.header[1], device_id=self.header[2],
             module_id=module, cmd=cmd, type=TYPE_REQUEST, data=data, client_id=self.client_id,
         )
         self.ws.send_binary(packet.SerializeToString())

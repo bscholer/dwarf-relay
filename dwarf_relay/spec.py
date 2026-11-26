@@ -1,6 +1,6 @@
-"""Scope service spec v0.1: version and the operations each capability requires."""
+"""Scope service spec v0.2: version and the operations each capability requires."""
 
-SPEC_VERSION = "0.1"
+SPEC_VERSION = "0.2"
 
 CAPABILITY_OPERATIONS = {
     "status": ["getStatus"],

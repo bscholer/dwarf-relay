@@ -2,9 +2,23 @@
 
 A relay and command-line control for DWARF smart telescopes on the local network. Goal: keep the scope outside on power, set a target, capture darks, and copy files.
 
-Only the DWARF 3 works so far (tested on firmware 1.5.4). It speaks the scope's WebSocket protocol directly, with message types and command numbers from [dwarf_python_api](https://github.com/stevejcl/dwarf_python_api). That library also covers the DWARF II and mini, so those should be reachable later. See [docs/protocol.md](docs/protocol.md).
+It's tested on a DWARF 3 (firmware 1.5.4). The DWARF mini and DWARF II should work too, but nobody has tried them yet (see [Models](#models)). It speaks the scope's WebSocket protocol directly, with message types and command numbers from [dwarf_python_api](https://github.com/stevejcl/dwarf_python_api). See [docs/protocol.md](docs/protocol.md).
 
 This used to be called dwarf3-control.
+
+## Models
+
+The relay asks the scope which model it is (`POST :8082/deviceInfo`) and adjusts. Set `DWARF_MODEL` (`dwarf3`, `dwarfmini` or `dwarf2`) if detection gets it wrong.
+
+| | DWARF 3 | DWARF mini | DWARF II |
+|---|---|---|---|
+| Tested with the relay | yes | no | no |
+| Filters | vis, astro, duo | astro, duo | vis (IR cut), astro (IR pass) |
+| Longest exposure | 120 s | 180 s | 15 s |
+| Point up and close barrel | yes | skipped, angles unknown | skipped, angles unknown |
+| Wide darks | yes | yes | no |
+
+The mini and DWARF II values come from [dwarf_python_api](https://github.com/stevejcl/dwarf_python_api) and the device profiles in [dwarfAlp](https://github.com/acocalypso/dwarfAlp). `GET /api/capabilities` reports the detected model and its filters and exposures. If you run the relay with a mini or a DWARF II, please open an issue with what worked and what didn't. The motor angles for pointing straight up are the most useful thing to send.
 
 ## Install
 
@@ -30,7 +44,7 @@ dwarf-relay close
 dwarf-relay mirror ./data/astronomy
 ```
 
-Set `DWARF3_HOST` for each command. `prepare` also needs `DWARF3_LAT`, `DWARF3_LON`, `DWARF3_UTC_OFFSET`, and `DWARF3_TZ`.
+Set `DWARF3_HOST` for each command (the name predates the other models). `prepare` also needs `DWARF3_LAT`, `DWARF3_LON`, `DWARF3_UTC_OFFSET`, and `DWARF3_TZ`.
 
 ## Relay
 

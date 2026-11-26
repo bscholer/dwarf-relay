@@ -1,15 +1,31 @@
-"""Command line for the DWARF 3."""
+"""Command line for a DWARF scope."""
 import argparse
 import asyncio
 import os
 from pathlib import Path
 
-from . import proxy
+from . import models, proxy
+from .client import Client
 from .files import Album
-from .scope import ALBUM_ROOT, FILTERS, MOTOR_PITCH, MOTOR_ROTATION, Scope
+from .scope import MOTOR_PITCH, MOTOR_ROTATION, Scope
+
+def model(args) -> models.Model:
+    return models.detect(args.host) or models.DEFAULT
+
+
+def album_root(args, found: models.Model) -> str:
+    if len(found.album_roots) == 1:
+        return found.album_roots[0]
+    album = Album(args.host)
+    try:
+        return next((r for r in found.album_roots if album.has_folder(r)), found.album_roots[0])
+    finally:
+        album.close()
+
 
 def session(args, fn):
-    scope = Scope(args.host)
+    found = model(args)
+    scope = Scope(args.host, model=found, client=Client(args.host, header=found.header), album_root=album_root(args, found))
     try:
         return fn(scope)
     finally:
@@ -29,7 +45,7 @@ def cmd_darks(args):
 
 def cmd_dark(args):
     session(args, lambda s: s.start_dark(args.exposure, args.gain, args.frames, wide=args.wide))
-    print("dark capture sent, watch /Astronomy/DWARF_DARK for the frames")
+    print("dark capture sent, watch the DWARF_DARK folder for the frames")
 
 
 def cmd_prepare(args):
@@ -70,7 +86,8 @@ def cmd_stop(args):
 def cmd_mirror(args):
     album = Album(args.host)
     try:
-        print("copied", album.mirror(args.path, Path(args.dest)), "files")
+        path = args.path or album_root(args, model(args))
+        print("copied", album.mirror(path, Path(args.dest)), "files")
     finally:
         album.close()
 
@@ -115,12 +132,12 @@ def main() -> None:
     p.add_argument("--frames", type=int, default=5)
     p.add_argument("--exposure", default="15", choices=["15", "30", "60"])
     p.add_argument("--gain", type=int, default=60)
-    p.add_argument("--filter", default="duo", choices=sorted(FILTERS))
+    p.add_argument("--filter", default="duo", choices=sorted({f for m in models.MODELS for f in m.filters}))
     p.set_defaults(fn=cmd_capture)
     sub.add_parser("stop").set_defaults(fn=cmd_stop)
     p = sub.add_parser("mirror")
     p.add_argument("dest")
-    p.add_argument("--path", default=ALBUM_ROOT)
+    p.add_argument("--path", default=None, help="album folder; the astro folder of the scope by default")
     p.set_defaults(fn=cmd_mirror)
 
     p = sub.add_parser("nudge")

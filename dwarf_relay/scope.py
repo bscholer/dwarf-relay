@@ -2,6 +2,7 @@
 import time
 
 from .client import Client, ConnectionLost
+from . import models
 from .files import Album, count_failed, count_frames, raw_sessions
 from .protocol import CMD, astro, focus, motor, param, system, task_center
 from .wire import parse
@@ -14,10 +15,10 @@ CALIBRATE, GOTO, CAPTURE_START = CMD.CMD_ASTRO_START_CALIBRATION, CMD.CMD_ASTRO_
 AUTOFOCUS = CMD.CMD_FOCUS_START_ASTRO_AUTO_FOCUS
 JOYSTICK, JOYSTICK_STOP = CMD.CMD_STEP_MOTOR_SERVICE_JOYSTICK, CMD.CMD_STEP_MOTOR_SERVICE_JOYSTICK_STOP
 SHOOTING_MODE_ASTRO, SHOOTING_TECH_DEEP_SKY, ENCODE_TYPE = 2, 2, 1
-PITCH_CLOSED = 0.0
-PITCH_ZENITH = 172.5  # Set by eye on a tripod. The polar value 169 is about 3 degrees short.
+PITCH_CLOSED = models.DWARF3.pitch_closed
+PITCH_ZENITH = models.DWARF3.pitch_zenith
 PITCH_TOLERANCE = 8.0  # A pitch further from zenith than this after point_up means the scope did not get there.
-ROTATION_CENTER = 158.0
+ROTATION_CENTER = models.DWARF3.rotation_center
 ROTATION_LOCKED = -14511  # The firmware refuses a rotation reset in EQ mode.
 MODE_REFUSED = -16602  # The firmware refuses a shooting mode change in some states.
 
@@ -26,8 +27,7 @@ PARAM_GAIN = 0x0201000000000002
 PARAM_IR_FILTER = 0x020100000000000D
 PARAM_STACK_COUNT = 0x0202000000000010
 
-FILTERS = {"vis": 0, "astro": 1, "duo": 2}
-EXPOSURE_INDEX = {"15": 156, "30": 159, "60": 162}
+FILTERS = models.DWARF3.filters  # The DWARF 3; other models: Scope.model.filters
 DARK_GAIN_INDEX = {"60": 18}
 
 STATE_RUNNING = 1
@@ -53,8 +53,14 @@ def reply_code(fields, code_field: int = 1) -> int | None:
 
 
 class Scope:
-    def __init__(self, host: str, log=print, client=None, reconnect=None):
+    model: models.Model = models.DEFAULT
+    album_root: str = ALBUM_ROOT
+
+    def __init__(self, host: str, log=print, client=None, reconnect=None, model: models.Model = models.DEFAULT,
+                 album_root: str | None = None):
         self.host = host
+        self.model = model
+        self.album_root = album_root or model.album_roots[0]
         self.log = log
         self.client = client or Client(host)
         self.reconnect = reconnect
@@ -89,6 +95,18 @@ class Scope:
 
     def _call(self, module: int, cmd: int, data: bytes = b"", timeout: float = 20.0):
         return self._retry(lambda client: client.call(module, cmd, data, timeout=timeout))
+
+    def _exposure(self, seconds: str) -> int:
+        try:
+            return models.exposure_index(self.model, seconds)
+        except ValueError as exc:
+            raise ScopeError(str(exc)) from exc
+
+    def _filter(self, name: str) -> int:
+        try:
+            return models.filter_index(self.model, name)
+        except ValueError as exc:
+            raise ScopeError(str(exc)) from exc
 
     def _ok(self, name: str, fields, code_field: int = 1) -> None:
         code = reply_code(fields, code_field)
@@ -141,16 +159,24 @@ class Scope:
         self._ok("reset pitch", self._call(MODULE_MOTOR, CMD.CMD_STEP_MOTOR_RESET, pitch, timeout=120), 2)
 
     def point_up(self) -> None:
-        if not self.rotation_locked:
-            self.move(MOTOR_ROTATION, ROTATION_CENTER)
-        self.move(MOTOR_PITCH, PITCH_ZENITH)
+        zenith = self.model.pitch_zenith
+        if zenith is None:
+            # Calibration slews on its own, so a scope that stays put here can still go on.
+            self.log(f"point up: the motor angle for straight up is not known for the {self.model.name}, skipped")
+            return
+        if not self.rotation_locked and self.model.rotation_center is not None:
+            self.move(MOTOR_ROTATION, self.model.rotation_center)
+        self.move(MOTOR_PITCH, zenith)
         pitch = self.position(MOTOR_PITCH)
-        if pitch is None or abs(pitch - PITCH_ZENITH) > PITCH_TOLERANCE:
-            raise ScopeError(f"scope is not pointing at the sky: pitch {pitch}, expected {PITCH_ZENITH}")
+        if pitch is None or abs(pitch - zenith) > PITCH_TOLERANCE:
+            raise ScopeError(f"scope is not pointing at the sky: pitch {pitch}, expected {zenith}")
 
     def close_barrel(self) -> None:
         # The firmware returns pitch to about 12.5 after it reaches 0. The official app does the same.
-        self.move(MOTOR_PITCH, PITCH_CLOSED, resolution=2)
+        if self.model.pitch_closed is None:
+            self.log(f"close barrel: the closed motor angle is not known for the {self.model.name}, skipped")
+            return
+        self.move(MOTOR_PITCH, self.model.pitch_closed, resolution=2)
 
     def focus_infinity(self) -> None:
         self._ok("infinity focus", self._call(MODULE_FOCUS, AUTOFOCUS, encode(focus.ReqAstroAutoFocus(mode=1)), timeout=90))
@@ -187,11 +213,12 @@ class Scope:
 
     def set_capture(self, exposure: str, gain: int, filter_name: str) -> None:
         c = self.client
-        exposure_req = param.ReqSetExposure(param_id=PARAM_EXPOSURE, mode=1, value=EXPOSURE_INDEX[exposure])
+        exposure_index, filter_index = self._exposure(exposure), self._filter(filter_name)  # check both before sending
+        exposure_req = param.ReqSetExposure(param_id=PARAM_EXPOSURE, mode=1, value=exposure_index)
         self._ok("exposure", c.call(MODULE_PARAMS, CMD.CMD_V3_CAMERA_PARAMS_SET_PARAM, encode(exposure_req)))
         gain_req = param.ReqSetGain(param_id=PARAM_GAIN, mode=1, value=gain)
         self._ok("gain", c.call(MODULE_PARAMS, CMD.CMD_V3_CAMERA_PARAMS_SET_EXP_GAIN, encode(gain_req)))
-        filter_req = param.ReqSetGeneralIntParam(param_id=PARAM_IR_FILTER, value=FILTERS[filter_name])
+        filter_req = param.ReqSetGeneralIntParam(param_id=PARAM_IR_FILTER, value=filter_index)
         self._ok("filter", c.call(MODULE_PARAMS, CMD.CMD_V3_CAMERA_PARAMS_ADJUST, encode(filter_req)))
 
     def capture(self, frames: int, filter_name: str, exposure_s: float, cancel=None, progress=None) -> str:
@@ -203,11 +230,12 @@ class Scope:
         start that makes no session folder within START_GRACE_S raises with the code.
         Any exit after the start sends a stop, so a failed job never leaves the scope shooting.
         """
+        filter_index = self._filter(filter_name)
         album = Album(self.host)
         started = False
         try:
-            before = raw_sessions(album.names(ALBUM_ROOT))
-            self._send(MODULE_ASTRO, CAPTURE_START, encode(astro.ReqCaptureRawLiveStacking(ir_index=FILTERS[filter_name], force_start=True)))
+            before = raw_sessions(album.names(self.album_root))
+            self._send(MODULE_ASTRO, CAPTURE_START, encode(astro.ReqCaptureRawLiveStacking(ir_index=filter_index, force_start=True)))
             started = True
             begun = time.time()
             end = begun + 120 + frames * (exposure_s + 15)
@@ -229,10 +257,10 @@ class Scope:
                 if time.time() < next_poll:
                     continue
                 next_poll = time.time() + 5
-                new = raw_sessions(album.names(ALBUM_ROOT)) - before
+                new = raw_sessions(album.names(self.album_root)) - before
                 if new:
                     session = max(new, key=lambda n: n[-23:])
-                    names = album.names(f"{ALBUM_ROOT}/{session}")
+                    names = album.names(f"{self.album_root}/{session}")
                     count = count_frames(names)
                     self.log(f"frames: {count}/{frames}")
                     if progress:
@@ -277,7 +305,7 @@ class Scope:
     def start_dark(self, exposure: str, gain: str, frames: int, wide: bool = False) -> None:
         """Start a dark capture. The scope sends no reply, so watch the dark folder for completion."""
         data = encode(astro.ReqCaptureDarkFrameWithParam(
-            exp_index=EXPOSURE_INDEX[exposure], gain_index=DARK_GAIN_INDEX[gain], cap_size=frames))
+            exp_index=self._exposure(exposure), gain_index=DARK_GAIN_INDEX[gain], cap_size=frames))
         wide_cmd, tele_cmd = CMD.CMD_ASTRO_START_CAPTURE_WIDE_RAW_DARK_WITH_PARAM, CMD.CMD_ASTRO_START_CAPTURE_RAW_DARK_WITH_PARAM
         self._send(MODULE_ASTRO, wide_cmd if wide else tele_cmd, data)
 

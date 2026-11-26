@@ -1,4 +1,4 @@
-# Scope service spec v0.1
+# Scope service spec v0.2
 
 A scope service controls one telescope for a client such as astrolab. The client has no scope-specific code. It reads the capabilities list and uses only the features the service reports.
 
@@ -25,10 +25,20 @@ The service publishes `/openapi.json` and an MCP endpoint at `/mcp`. Both come f
 
 A service lists a capability only when it implements every operation in its row. `scripts/conformance.py` checks this against a running service.
 
+### Capture options (0.2)
+
+Choices that depend on the scope model come in `capture`, next to the capability list:
+
+```json
+"capture": {"filters": ["vis", "astro", "duo"], "exposures": ["1", "2", "15", "30", "60"], "wide_darks": true}
+```
+
+`startCapture` takes a filter and an exposure from these lists, and `startDark` takes `wide=true` only when `wide_darks` is true. A 0.1 service has no `capture` field; a client then assumes vis, astro and duo, and 15, 30 and 60 seconds.
+
 ## Units and names
 
 - Coordinates: RA in hours and Dec in degrees, J2000.
-- Exposure: seconds. Gain: the scope gain number. Filter: a name from the service capability data.
+- Exposure: seconds, as a string from `capture.exposures`. Gain: the scope gain number. Filter: a name from `capture.filters`.
 - Errors: HTTP status plus `{"detail": text, "code": code}`. MCP tools return `isError` with the text.
 
 ## Error codes

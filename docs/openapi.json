@@ -10,6 +10,17 @@
             "title": "Capabilities",
             "type": "array"
           },
+          "capture": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CaptureOptions"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Choices that depend on the scope model. Since spec 0.2."
+          },
           "service": {
             "$ref": "#/components/schemas/ServiceInfo"
           },
@@ -30,13 +41,13 @@
         "properties": {
           "exposure": {
             "default": "15",
-            "description": "Seconds per frame: 15, 30, or 60.",
+            "description": "Seconds per frame, one of capabilities capture.exposures (15, 30 or 60 on a DWARF 3).",
             "title": "Exposure",
             "type": "string"
           },
           "filter": {
             "default": "duo",
-            "description": "vis, astro, or duo.",
+            "description": "One of capabilities capture.filters (vis, astro or duo on a DWARF 3).",
             "title": "Filter",
             "type": "string"
           },
@@ -56,6 +67,38 @@
           "frames"
         ],
         "title": "CaptureIn",
+        "type": "object"
+      },
+      "CaptureOptions": {
+        "properties": {
+          "exposures": {
+            "description": "Exposures in seconds that startCapture and startDark accept.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Exposures",
+            "type": "array"
+          },
+          "filters": {
+            "description": "Filter names startCapture accepts on this scope.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Filters",
+            "type": "array"
+          },
+          "wide_darks": {
+            "description": "Whether startDark takes wide=true on this scope.",
+            "title": "Wide Darks",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "filters",
+          "exposures",
+          "wide_darks"
+        ],
+        "title": "CaptureOptions",
         "type": "object"
       },
       "Chunk": {
@@ -92,7 +135,7 @@
         "properties": {
           "exposure": {
             "default": "15",
-            "description": "Seconds per frame: 15, 30, or 60.",
+            "description": "Seconds per frame, one of capabilities capture.exposures (15, 30 or 60 on a DWARF 3).",
             "title": "Exposure",
             "type": "string"
           },
@@ -358,7 +401,7 @@
       "PointIn": {
         "properties": {
           "pitch": {
-            "description": "Absolute pitch position, 0 to 175. 172.5 is straight up.",
+            "description": "Absolute pitch position, 0 to 175. On a DWARF 3, 172.5 is straight up.",
             "title": "Pitch",
             "type": "number"
           },
